@@ -94,6 +94,16 @@
         <p class="text-xs mt-2">서로의 감정을 존중하고 따뜻한 말로 소통해요 💕</p>
     </footer>
 
-    {% block extra_js %}{% endblock %}
+    {% block extra_js %}
+    <script>
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a.nav-item');
+            if (link && link.href) {
+                e.preventDefault();
+                window.location.href = link.href;
+            }
+        });
+    </script>
+    {% endblock %}
 </body>
 </html> 
