@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}모든 이야기 - EmotLink{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="text-center mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-3">
+        모두의 감정 이야기
+    </h2>
+    <p class="text-gray-600 text-lg">
+        {{ total_entries }}개의 진솔한 이야기들을 만나보세요
+    </p>
+</div>
+
+<!-- Quick Write Button -->
+<div class="text-center mb-8">
+    <a href="/write" class="inline-flex items-center bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-lg">
+        <i class="fas fa-plus mr-2"></i>
+        내 이야기도 공유하기
+    </a>
+</div>
+
+<!-- Entries Grid -->
+{% if all_entries %}
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {% for entry in all_entries %}
+        <div class="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <!-- Card Header -->
+            <div class="px-6 py-4 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
+                            <span class="text-white font-bold text-lg">{{ entry.author[0].upper() }}</span>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ entry.author }}</p>
+                            <p class="text-xs text-gray-500">{{ entry.date }}</p>
+                        </div>
+                    </div>
+                    <div class="text-4xl group-hover:scale-110 transition-transform duration-300">{{ entry.emotion }}</div>
+                </div>
+            </div>
+            
+            <!-- Card Body -->
+            <div class="px-6 py-5">
+                <h4 class="font-bold text-xl text-gray-800 mb-3 leading-tight">{{ entry.title }}</h4>
+                <p class="text-gray-600 text-sm leading-relaxed">
+                    {% if entry.content|length > 150 %}
+                        {{ entry.content[:150] }}...
+                    {% else %}
+                        {{ entry.content }}
+                    {% endif %}
+                </p>
+            </div>
+            
+            <!-- Card Footer -->
+            <div class="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                        <i class="fas fa-clock mr-1"></i>
+                        {{ entry.created_at[:10] }}
+                    </span>
+                    <div class="flex items-center space-x-4">
+                        <button class="flex items-center space-x-1 text-pink-500 hover:text-pink-600 transition-colors">
+                            <i class="fas fa-heart"></i>
+                            <span>공감</span>
+                        </button>
+                        <button class="flex items-center space-x-1 text-blue-500 hover:text-blue-600 transition-colors">
+                            <i class="fas fa-comment"></i>
+                            <span>응답</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Load More Button (for pagination later) -->
+    <div class="text-center mt-12">
+        <button class="bg-white border border-gray-300 text-gray-700 px-8 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300">
+            <i class="fas fa-chevron-down mr-2"></i>
+            더 많은 이야기 보기
+        </button>
+    </div>
+{% else %}
+    <!-- Empty State -->
+    <div class="text-center py-20 bg-white rounded-2xl shadow-lg">
+        <div class="text-gray-400 mb-6">
+            <i class="fas fa-comments text-8xl"></i>
+        </div>
+        <h3 class="text-2xl font-semibold text-gray-600 mb-4">아직 공유된 이야기가 없어요</h3>
+        <p class="text-gray-500 mb-8">첫 번째 이야기를 공유하고 다른 사람들과 감정을 나눠보세요!</p>
+        <a href="/write" class="inline-flex items-center bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-lg">
+            <i class="fas fa-plus mr-2"></i>
+            첫 번째 이야기 작성하기
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add interaction feedback for heart/comment buttons
+    document.querySelectorAll('button').forEach(button => {
+        if (button.querySelector('.fa-heart') || button.querySelector('.fa-comment')) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Add animation
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'scale(1)';
+                }, 100);
+                
+                // For now, just show a message
+                if (this.querySelector('.fa-heart')) {
+                    alert('공감 기능은 곧 추가될 예정입니다! 💕');
+                } else if (this.querySelector('.fa-comment')) {
+                    alert('댓글 기능은 곧 추가될 예정입니다! 💬');
+                }
+            });
+        }
+    });
+
+    // Infinite scroll preparation
+    let isLoading = false;
+    
+    function loadMoreEntries() {
+        if (isLoading) return;
+        isLoading = true;
+        
+        // This would fetch more entries via API
+        // For now, just a placeholder
+        console.log('Loading more entries...');
+        
+        setTimeout(() => {
+            isLoading = false;
+        }, 1000);
+    }
+
+    // Add scroll listener for infinite scroll
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+            loadMoreEntries();
+        }
+    });
+</script>
+{% endblock %} 
