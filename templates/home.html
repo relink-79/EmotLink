@@ -3,137 +3,78 @@
 {% block title %}홈 - EmotLink{% endblock %}
 
 {% block content %}
-<!-- Welcome Section -->
-<div class="text-center mb-12">
-    <h2 class="text-4xl font-bold text-gray-800 mb-4">
-        EmotLink에 오신 것을 환영합니다! 
-    </h2>
-    <p class="text-xl text-gray-600">
-        당신의 감정을 기록하고, 다른 사람들과 마음을 나누는 공간입니다 ✨
-    </p>
+<!-- Welcome Header -->
+<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 mb-8">
+    <div class="flex items-center space-x-4">
+        <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-hand-sparkles text-indigo-600 text-3xl"></i>
+        </div>
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">안녕하세요!</h2>
+            <p class="text-gray-500 mt-1">오늘 하루는 어떠셨나요? EmotLink에서 당신의 감정을 공유해보세요.</p>
+        </div>
+    </div>
 </div>
 
-<!-- Quick Stats Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-    <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
-        <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-book text-pink-600 text-xl"></i>
+<!-- Stats Overview -->
+<div class="grid md:grid-cols-3 gap-6 mb-8">
+    <!-- Total Entries -->
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-full">
+                <i class="fas fa-book-open text-blue-600"></i>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">총 기록 수</p>
+                <p class="text-2xl font-bold text-gray-800">{{ stats.total_entries }}개</p>
+            </div>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800">{{ stats.total_entries }}</h3>
-        <p class="text-gray-600">총 이야기</p>
     </div>
-    
-    <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
-        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-heart text-purple-600 text-xl"></i>
+    <!-- Average Score -->
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 flex items-center justify-center bg-green-100 rounded-full">
+                <i class="fas fa-smile-beam text-green-600"></i>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">평균 감정 점수</p>
+                <p class="text-2xl font-bold text-gray-800">{{ stats.average_score }}점</p>
+            </div>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800">{{ stats.average_score }}</h3>
-        <p class="text-gray-600">평균 감정점수</p>
     </div>
-    
-    <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
-        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-smile text-blue-600 text-xl"></i>
+    <!-- Most Frequent Emotion -->
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 flex items-center justify-center bg-yellow-100 rounded-full">
+                <i class="fas fa-star text-yellow-600"></i>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">가장 많은 감정</p>
+                <p class="text-2xl font-bold text-gray-800">
+                    {% if stats.emotion_counts %}
+                        {% set top_emotion = stats.emotion_counts.items()|max(attribute='1') %}
+                    {% else %}
+                        {% set top_emotion = ('?', 0) %}
+                    {% endif %}
+                    {{ top_emotion[0] }} ({{ top_emotion[1] }}개)
+                </p>
+            </div>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800">
-            {% if stats.emotion_counts %}
-                {{ stats.emotion_counts.keys() | list | first }}
-            {% else %}
-                😊
-            {% endif %}
-        </h3>
-        <p class="text-gray-600">인기 감정</p>
-    </div>
-    
-    <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
-        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-users text-green-600 text-xl"></i>
-        </div>
-        <h3 class="text-2xl font-bold text-gray-800">{{ stats.emotion_counts | length }}</h3>
-        <p class="text-gray-600">다양한 감정</p>
     </div>
 </div>
 
 <!-- Quick Actions -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-    <!-- Write New Entry -->
-    <div class="bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
-        <div class="flex items-center mb-6">
-            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4">
-                <i class="fas fa-edit text-2xl"></i>
-            </div>
-            <div>
-                <h3 class="text-2xl font-bold">새로운 이야기 작성</h3>
-                <p class="text-pink-100">오늘의 감정을 기록해보세요</p>
-            </div>
-        </div>
-        <a href="/write" class="inline-flex items-center bg-white text-pink-600 px-6 py-3 rounded-xl font-semibold hover:bg-pink-50 transition-colors">
-            <i class="fas fa-pen mr-2"></i>
-            지금 작성하기
+<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">빠른 시작</h3>
+    <div class="flex flex-col sm:flex-row gap-4">
+        <a href="/write" class="flex items-center justify-center w-full sm:w-auto flex-1 px-6 py-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors text-center">
+            <i class="fas fa-edit mr-2"></i>
+            일기 쓰기
+        </a>
+        <a href="/view" class="flex items-center justify-center w-full sm:w-auto flex-1 px-6 py-4 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors text-center">
+            <i class="fas fa-book-open mr-2"></i>
+            모든 글 보기
         </a>
     </div>
-    
-    <!-- View All Entries -->
-    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
-        <div class="flex items-center mb-6">
-            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4">
-                <i class="fas fa-book-open text-2xl"></i>
-            </div>
-            <div>
-                <h3 class="text-2xl font-bold">모든 이야기 보기</h3>
-                <p class="text-blue-100">다른 사람들의 감정을 둘러보세요</p>
-            </div>
-        </div>
-        <a href="/view" class="inline-flex items-center bg-white text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors">
-            <i class="fas fa-eye mr-2"></i>
-            둘러보기
-        </a>
-    </div>
-</div>
-
-<!-- Today's Emotion Distribution -->
-{% if stats.emotion_counts %}
-<div class="bg-white rounded-2xl shadow-lg p-8 mb-8">
-    <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
-        <i class="fas fa-chart-pie mr-2 text-pink-500"></i>
-        감정 분포
-    </h3>
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {% for emotion, count in stats.emotion_counts.items() %}
-        <div class="text-center p-4 bg-gray-50 rounded-xl">
-            <div class="text-4xl mb-2">{{ emotion }}</div>
-            <div class="text-2xl font-bold text-gray-800">{{ count }}</div>
-            <div class="text-sm text-gray-600">개의 이야기</div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<!-- Quick Navigation -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <a href="/stats" class="block bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-        <div class="flex items-center">
-            <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
-                <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
-            </div>
-            <div>
-                <h4 class="text-lg font-semibold text-gray-800">감정 통계</h4>
-                <p class="text-gray-600">자세한 감정 분석 보기</p>
-            </div>
-        </div>
-    </a>
-    
-    <a href="/settings" class="block bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-        <div class="flex items-center">
-            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
-                <i class="fas fa-cog text-gray-600 text-xl"></i>
-            </div>
-            <div>
-                <h4 class="text-lg font-semibold text-gray-800">설정</h4>
-                <p class="text-gray-600">앱 설정 및 개인정보</p>
-            </div>
-        </div>
-    </a>
 </div>
 {% endblock %} 

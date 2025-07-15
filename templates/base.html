@@ -6,34 +6,19 @@
     <title>{% block title %}감정공유 커뮤니티 - EmotLink{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'emotion-pink': '#fce7f3',
-                        'emotion-blue': '#dbeafe',
-                        'emotion-green': '#d1fae5',
-                        'emotion-yellow': '#fef3c7',
-                        'emotion-purple': '#e9d5ff',
-                    }
-                }
-            }
-        }
-    </script>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-pink-50 to-purple-50 min-h-screen">
+<body class="bg-gray-50 text-gray-800 antialiased">
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-pink-100">
+    <header class="bg-white border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-                        <i class="fas fa-heart text-white text-lg"></i>
+                    <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
+                        <i class="fas fa-link text-white text-lg"></i>
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                        <h1 class="text-2xl font-bold text-gray-800">
                             EmotLink
                         </h1>
                         <p class="text-sm text-gray-500">감정을 연결하는 공간</p>
@@ -53,28 +38,28 @@
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-6">
             <div class="flex space-x-0">
-                <a href="/" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors {% if request.url.path == '/' %}bg-pink-50 text-pink-600 border-b-2 border-pink-500{% endif %}">
+                <a href="/" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors {% if request.url.path == '/' %}text-indigo-600 font-semibold border-b-2 border-indigo-500{% endif %}">
                     <i class="fas fa-home mr-2"></i>
                     <span class="hidden sm:inline">홈</span>
                 </a>
-                <a href="/write" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors {% if request.url.path == '/write' %}bg-pink-50 text-pink-600 border-b-2 border-pink-500{% endif %}">
+                <a href="/write" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors {% if request.url.path == '/write' %}text-indigo-600 font-semibold border-b-2 border-indigo-500{% endif %}">
                     <i class="fas fa-edit mr-2"></i>
                     <span class="hidden sm:inline">일기만들기</span>
                 </a>
-                <a href="/view" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors {% if request.url.path == '/view' %}bg-pink-50 text-pink-600 border-b-2 border-pink-500{% endif %}">
+                <a href="/view" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors {% if request.url.path == '/view' %}text-indigo-600 font-semibold border-b-2 border-indigo-500{% endif %}">
                     <i class="fas fa-book-open mr-2"></i>
                     <span class="hidden sm:inline">일기보기</span>
                 </a>
-                <a href="/stats" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors {% if request.url.path == '/stats' %}bg-pink-50 text-pink-600 border-b-2 border-pink-500{% endif %}">
+                <a href="/stats" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors {% if request.url.path == '/stats' %}text-indigo-600 font-semibold border-b-2 border-indigo-500{% endif %}">
                     <i class="fas fa-chart-line mr-2"></i>
                     <span class="hidden sm:inline">감정스코어</span>
                 </a>
-                <a href="/settings" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors {% if request.url.path == '/settings' %}bg-pink-50 text-pink-600 border-b-2 border-pink-500{% endif %}">
+                <a href="/settings" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors {% if request.url.path == '/settings' %}text-indigo-600 font-semibold border-b-2 border-indigo-500{% endif %}">
                     <i class="fas fa-cog mr-2"></i>
                     <span class="hidden sm:inline">설정</span>
                 </a>
                 {% if current_role == "admin" %}
-                <a href="/admin" class="nav-item flex items-center px-6 py-4 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors {% if request.url.path == '/admin' %}bg-red-50 text-red-600 border-b-2 border-red-500{% endif %}">
+                <a href="/admin" class="nav-item flex items-center px-6 py-3 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors {% if request.url.path == '/admin' %}text-red-600 font-semibold border-b-2 border-red-500{% endif %}">
                     <i class="fas fa-shield-alt mr-2"></i>
                     <span class="hidden sm:inline">관리자</span>
                 </a>
@@ -89,9 +74,9 @@
     </main>
 
     <!-- Footer -->
-    <footer class="text-center py-8 text-gray-500 bg-white border-t border-gray-100 mt-12">
+    <footer class="text-center py-8 text-gray-500 bg-white border-t border-gray-200 mt-12">
         <p>&copy; 2024 EmotLink. 모두의 감정이 연결되는 공간</p>
-        <p class="text-xs mt-2">서로의 감정을 존중하고 따뜻한 말로 소통해요 💕</p>
+        <p class="text-xs mt-2">서로의 감정을 존중하고 따뜻한 말로 소통해요.</p>
     </footer>
 
     {% block extra_js %}

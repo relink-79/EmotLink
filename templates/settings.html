@@ -3,311 +3,73 @@
 {% block title %}설정 - EmotLink{% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="text-center mb-8">
-    <h2 class="text-3xl font-bold text-gray-800 mb-3">
-        설정
-    </h2>
-    <p class="text-gray-600 text-lg">
-        {% if current_role == "admin" %}
-            관리자 설정을 변경할 수 있습니다
-        {% else %}
-            개인 설정을 변경할 수 있습니다
-        {% endif %}
-    </p>
-</div>
-
-<div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Settings Menu -->
-    <div class="lg:col-span-1">
-        <div class="bg-white rounded-2xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">설정 메뉴</h3>
-            <nav class="space-y-2">
-                <a href="#general" class="settings-nav-item block px-4 py-3 rounded-xl text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors" data-target="general">
-                    <i class="fas fa-user-cog mr-3"></i>
-                    일반 설정
-                </a>
-                <a href="#notifications" class="settings-nav-item block px-4 py-3 rounded-xl text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors" data-target="notifications">
-                    <i class="fas fa-bell mr-3"></i>
-                    알림 설정
-                </a>
-                <a href="#privacy" class="settings-nav-item block px-4 py-3 rounded-xl text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors" data-target="privacy">
-                    <i class="fas fa-shield-alt mr-3"></i>
-                    개인정보
-                </a>
-                {% if current_role == "admin" %}
-                <a href="#admin" class="settings-nav-item block px-4 py-3 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors" data-target="admin">
-                    <i class="fas fa-cog mr-3"></i>
-                    관리자 설정
-                </a>
-                {% endif %}
-                <a href="#about" class="settings-nav-item block px-4 py-3 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" data-target="about">
-                    <i class="fas fa-info-circle mr-3"></i>
-                    앱 정보
-                </a>
-            </nav>
+<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+    <!-- Header -->
+    <div class="flex items-center space-x-4 mb-8">
+        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-cog text-indigo-600 text-xl"></i>
+        </div>
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">설정</h2>
+            <p class="text-gray-500">앱의 동작을 관리합니다.</p>
         </div>
     </div>
 
-    <!-- Settings Content -->
-    <div class="lg:col-span-2">
-        <!-- General Settings -->
-        <div id="general" class="settings-content bg-white rounded-2xl shadow-lg p-8">
-            <h3 class="text-xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-user-cog mr-2 text-pink-500"></i>
-                일반 설정
-            </h3>
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">기본 닉네임</label>
-                    <input type="text" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="익명의 사용자">
-                    <p class="text-xs text-gray-500 mt-1">일기 작성 시 기본으로 사용될 닉네임입니다</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">테마 설정</label>
-                    <select class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400">
-                        <option>밝은 테마</option>
-                        <option>어두운 테마</option>
-                        <option>시스템 설정 따름</option>
-                    </select>
-                </div>
-                
+    <!-- Settings Sections -->
+    <div class="space-y-8">
+        <!-- Profile Settings -->
+        <div>
+            <h3 class="text-xl font-semibold text-gray-700 border-b border-gray-200 pb-2 mb-4">프로필 설정</h3>
+            <div class="space-y-4">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">자동 저장</label>
-                        <p class="text-xs text-gray-500">일기 작성 중 자동으로 임시 저장</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
+                    <label for="nickname" class="text-gray-600">닉네임</label>
+                    <input type="text" id="nickname" value="사용자" class="w-1/2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600">역할</span>
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ current_role }}</span>
                 </div>
             </div>
         </div>
 
-        <!-- Notifications Settings -->
-        <div id="notifications" class="settings-content bg-white rounded-2xl shadow-lg p-8 hidden">
-            <h3 class="text-xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-bell mr-2 text-pink-500"></i>
-                알림 설정
-            </h3>
-            <div class="space-y-6">
+        <!-- Notification Settings -->
+        <div>
+            <h3 class="text-xl font-semibold text-gray-700 border-b border-gray-200 pb-2 mb-4">알림 설정</h3>
+            <div class="space-y-4">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">새로운 이야기 알림</label>
-                        <p class="text-xs text-gray-500">다른 사용자가 새 이야기를 공유할 때</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
-                </div>
-                
-                <div class="flex items-center justify-between">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">공감 알림</label>
-                        <p class="text-xs text-gray-500">내 이야기에 공감을 받을 때</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
-                </div>
-                
-                <div class="flex items-center justify-between">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">일일 리마인더</label>
-                        <p class="text-xs text-gray-500">매일 감정 기록을 위한 알림</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Privacy Settings -->
-        <div id="privacy" class="settings-content bg-white rounded-2xl shadow-lg p-8 hidden">
-            <h3 class="text-xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-shield-alt mr-2 text-pink-500"></i>
-                개인정보 설정
-            </h3>
-            <div class="space-y-6">
-                <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                    <h4 class="font-semibold text-blue-800 mb-2">개인정보 보호 정책</h4>
-                    <p class="text-sm text-blue-700">EmotLink는 사용자의 개인정보를 소중히 여기며, 최소한의 정보만을 수집합니다.</p>
-                </div>
-                
-                <div class="flex items-center justify-between">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">익명 모드</label>
-                        <p class="text-xs text-gray-500">모든 이야기를 완전 익명으로 공유</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
-                </div>
-                
-                <div>
-                    <button class="w-full bg-red-500 text-white py-3 rounded-xl font-semibold hover:bg-red-600 transition-colors">
-                        <i class="fas fa-trash mr-2"></i>
-                        모든 데이터 삭제
+                    <span class="text-gray-600">새로운 공감 알림</span>
+                    <button class="w-14 h-7 rounded-full bg-gray-200 flex items-center transition-colors duration-300 focus:outline-none shadow-inner" onclick="this.classList.toggle('bg-indigo-500')">
+                        <span class="w-6 h-6 rounded-full bg-white transform transition-transform duration-300"></span>
                     </button>
-                    <p class="text-xs text-gray-500 mt-2 text-center">작성한 모든 이야기가 영구 삭제됩니다</p>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600">이벤트 및 업데이트 소식</span>
+                    <button class="w-14 h-7 rounded-full bg-indigo-500 flex items-center transition-colors duration-300 focus:outline-none shadow-inner" onclick="this.classList.toggle('bg-gray-200')">
+                        <span class="w-6 h-6 rounded-full bg-white transform translate-x-full transition-transform duration-300"></span>
+                    </button>
                 </div>
             </div>
         </div>
-
-        <!-- Admin Settings (only visible for admins) -->
-        {% if current_role == "admin" %}
-        <div id="admin" class="settings-content bg-white rounded-2xl shadow-lg p-8 hidden">
-            <h3 class="text-xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-cog mr-2 text-red-500"></i>
-                관리자 설정
-            </h3>
-            <div class="space-y-6">
-                <div class="p-4 bg-red-50 rounded-xl border border-red-200">
-                    <h4 class="font-semibold text-red-800 mb-2">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>
-                        관리자 권한
-                    </h4>
-                    <p class="text-sm text-red-700">아래 설정들은 전체 시스템에 영향을 미칩니다. 신중하게 사용해주세요.</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <a href="/admin" class="block p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                        <i class="fas fa-chart-line text-blue-500 text-2xl mb-2"></i>
-                        <h4 class="font-semibold text-gray-800">관리자 대시보드</h4>
-                        <p class="text-sm text-gray-600">전체 통계 및 관리</p>
-                    </a>
-                    
-                    <div class="block p-4 border border-gray-200 rounded-xl">
-                        <i class="fas fa-users text-green-500 text-2xl mb-2"></i>
-                        <h4 class="font-semibold text-gray-800">사용자 관리</h4>
-                        <p class="text-sm text-gray-600">사용자 권한 설정</p>
-                    </div>
-                    
-                    <div class="block p-4 border border-gray-200 rounded-xl">
-                        <i class="fas fa-filter text-orange-500 text-2xl mb-2"></i>
-                        <h4 class="font-semibold text-gray-800">콘텐츠 관리</h4>
-                        <p class="text-sm text-gray-600">부적절한 내용 필터링</p>
-                    </div>
-                    
-                    <div class="block p-4 border border-gray-200 rounded-xl">
-                        <i class="fas fa-database text-purple-500 text-2xl mb-2"></i>
-                        <h4 class="font-semibold text-gray-800">데이터 백업</h4>
-                        <p class="text-sm text-gray-600">시스템 백업 및 복원</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- About -->
-        <div id="about" class="settings-content bg-white rounded-2xl shadow-lg p-8 hidden">
-            <h3 class="text-xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-info-circle mr-2 text-pink-500"></i>
-                앱 정보
-            </h3>
-            <div class="space-y-6">
-                <div class="text-center">
-                    <div class="w-20 h-20 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-heart text-white text-3xl"></i>
-                    </div>
-                    <h4 class="text-2xl font-bold text-gray-800 mb-2">EmotLink</h4>
-                    <p class="text-gray-600">감정을 연결하는 공간</p>
-                    <p class="text-sm text-gray-500 mt-2">버전 1.0.0</p>
-                </div>
-                
-                <div class="border-t border-gray-200 pt-6">
-                    <h5 class="font-semibold text-gray-800 mb-4">개발 정보</h5>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span class="text-gray-600">프레임워크:</span>
-                            <span class="font-medium">FastAPI + Tailwind CSS</span>
-                        </div>
-                        <div>
-                            <span class="text-gray-600">개발 언어:</span>
-                            <span class="font-medium">Python + HTML + JavaScript</span>
-                        </div>
-                        <div>
-                            <span class="text-gray-600">라이선스:</span>
-                            <span class="font-medium">MIT License</span>
-                        </div>
-                        <div>
-                            <span class="text-gray-600">개발자:</span>
-                            <span class="font-medium">EmotLink Team</span>
-                        </div>
-                    </div>
-                </div>
+        
+        <!-- Danger Zone -->
+        <div>
+            <h3 class="text-xl font-semibold text-red-600 border-b border-red-200 pb-2 mb-4">위험 구역</h3>
+            <div class="flex items-center justify-between">
+                <p class="text-gray-600">모든 데이터를 삭제하고 앱을 초기화합니다.</p>
+                <button class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors">
+                    데이터 초기화
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Save Button -->
-<div class="max-w-4xl mx-auto mt-8 text-center">
-    <button class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-lg">
-        <i class="fas fa-save mr-2"></i>
-        설정 저장하기
-    </button>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Settings navigation
-    document.querySelectorAll('.settings-nav-item').forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Remove active class from all nav items
-            document.querySelectorAll('.settings-nav-item').forEach(nav => {
-                nav.classList.remove('bg-pink-50', 'text-pink-600');
-            });
-            
-            // Add active class to clicked item
-            this.classList.add('bg-pink-50', 'text-pink-600');
-            
-            // Hide all content sections
-            document.querySelectorAll('.settings-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            
-            // Show target content
-            const target = this.getAttribute('data-target');
-            document.getElementById(target).classList.remove('hidden');
-        });
-    });
-    
-    // Set default active
-    document.querySelector('.settings-nav-item').click();
-    
-    // Toggle switches animation
-    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            if (this.checked) {
-                console.log('Setting enabled');
-            } else {
-                console.log('Setting disabled');
-            }
-        });
-    });
-    
-    // Save settings
-    document.querySelector('button[class*="bg-gradient"]').addEventListener('click', function() {
-        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>저장 중...';
-        
-        setTimeout(() => {
-            this.innerHTML = '<i class="fas fa-check mr-2"></i>저장 완료!';
-            
-            setTimeout(() => {
-                this.innerHTML = '<i class="fas fa-save mr-2"></i>설정 저장하기';
-            }, 2000);
-        }, 1000);
-    });
-</script>
+<style>
+    button[onclick*="toggle"] > span {
+        transform: translateX(0);
+    }
+    button[onclick*="toggle"].bg-indigo-500 > span {
+        transform: translateX(1.75rem); /* w-7 = 1.75rem */
+    }
+</style>
 {% endblock %} 
