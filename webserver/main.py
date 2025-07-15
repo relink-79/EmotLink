@@ -129,19 +129,19 @@ async def view_diary_page(request: Request):
         "current_role": current_role
     })
 
-@app.get("/stats", response_class=HTMLResponse)
-async def emotion_stats_page(request: Request):
-    """감정 통계/스코어 페이지"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
-    stats = get_emotion_stats()
-    current_role = get_current_user_role()
+# @app.get("/stats", response_class=HTMLResponse)
+# async def emotion_stats_page(request: Request):
+#     """감정 통계/스코어 페이지"""
+#     today = datetime.now().strftime("%Y년 %m월 %d일")
+#     stats = get_emotion_stats()
+#     current_role = get_current_user_role()
     
-    return templates.TemplateResponse("stats.html", {
-        "request": request,
-        "today": today,
-        "stats": stats,
-        "current_role": current_role
-    })
+#     return templates.TemplateResponse("stats.html", {
+#         "request": request,
+#         "today": today,
+#         "stats": stats,
+#         "current_role": current_role
+#     })
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
@@ -197,7 +197,7 @@ async def get_diary_entries():
     entries = load_diary_entries()
     return {"entries": entries, "total": len(entries)}
 
-@app.get("/api/stats")
-async def get_stats():
-    """감정 통계 API (JSON)"""
-    return get_emotion_stats() 
+# @app.get("/api/stats")
+# async def get_stats():
+#     """감정 통계 API (JSON)"""
+#     return get_emotion_stats() 
