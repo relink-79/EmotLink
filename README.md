@@ -14,7 +14,7 @@ python setup.py
 
 ## 실행
 
-개발 목적에 따라 아래 중 하나를 실행합니다.
+앱을 실행하려면 둘다 해야하고, 웹을 실행하려면 아래것만 실행하면 됩니다.
 
 #### 모바일 앱 개발
 
@@ -25,6 +25,6 @@ python run_app.py
 #### 웹 브라우저 개발
 
 ```bash
-python -m uvicorn webserver.main:app --reload
+python -m uvicorn webserver.main:app --host 0.0.0.0
 ```
 웹 브라우저에서 `http://127.0.0.1:8000` 주소로 접속하여 확인합니다.
