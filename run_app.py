@@ -26,6 +26,48 @@ def print_color(text, color=""):
     color_code = colors.get(color, "")
     print(f"{color_code}{text}{colors['end']}")
 
+def check_and_install_dependencies():
+    """Checks for and installs required Node.js and Python dependencies."""
+    print_color("\n--- 의존성 확인 및 설치 ---", "header")
+
+    # 1. Check for Node.js dependencies (node_modules)
+    if not os.path.exists("node_modules"):
+        print_color("▶️  Node.js 의존성(node_modules)을 찾을 수 없습니다. 'npm install'을 실행합니다...", "yellow")
+        try:
+            # Using shell=True for compatibility, especially on Windows
+            subprocess.run(
+                "npm install", 
+                shell=True, 
+                check=True, 
+                capture_output=True, 
+                text=True, 
+                encoding='utf-8'
+            )
+            print_color("✅  Node.js 의존성 설치 완료.", "green")
+        except subprocess.CalledProcessError as e:
+            print_color(f"❌  'npm install' 실행 실패:\n{e.stderr}", "red")
+            sys.exit(1)
+    else:
+        print_color("✅  Node.js 의존성이 이미 설치되어 있습니다.", "green")
+
+    # 2. Install Python dependencies from requirements.txt
+    if os.path.exists("requirements.txt"):
+        print_color("▶️  Python 의존성을 설치합니다 (requirements.txt)...", "blue")
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding='utf-8'
+            )
+            print_color("✅  Python 의존성 설치 완료.", "green")
+        except subprocess.CalledProcessError as e:
+            print_color(f"❌  'pip install' 실행 실패:\n{e.stderr}", "red")
+            sys.exit(1)
+    else:
+        print_color("⚠️  'requirements.txt'를 찾을 수 없어 Python 의존성을 설치할 수 없습니다.", "yellow")
+
 def get_local_ip():
     """Attempts to find the local IP address of the machine."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -75,6 +117,9 @@ def main():
     print_color("🚀  EmotLink 모바일 앱 실행 스크립트 🚀", "header")
     print_color("==============================================", "header")
 
+    # 0. Check and install dependencies first
+    check_and_install_dependencies()
+
     # 1. Get local IP and set the target URL
     local_ip = get_local_ip()
     target_url = f"http://{local_ip}:8000"
@@ -92,6 +137,11 @@ def main():
         print_color(f"\n--- 3. 웹 서버 실행 ---", "header")
         server_process = run_server()
         
+        # Ensure the assets directory exists before running Capacitor commands
+        assets_dir = os.path.join("android", "app", "src", "main", "assets")
+        os.makedirs(assets_dir, exist_ok=True)
+        print_color(f"✅  '{assets_dir}' 디렉터리 확인/생성 완료.", "green")
+
         # 4. Run the capacitor app
         print_color(f"\n--- 4. Android 앱 빌드 및 실행 ---", "header")
         print_color("Android Studio를 실행합니다. 잠시만 기다려주세요...", "blue")
