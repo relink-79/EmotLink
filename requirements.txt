@@ -2,6 +2,7 @@ fastapi
 uvicorn
 jinja2
 python-multipart
+itsdangerous
 passlib[bcrypt]
 python-jose[cryptography]
 pywebview 

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime
 import json
 import os
@@ -9,6 +10,9 @@ from typing import Optional
 from enum import Enum
 
 app = FastAPI()
+
+# 세션 미들웨어 추가
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key-change-in-production")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -80,23 +84,58 @@ def get_emotion_stats():
         "total_score": total_score
     }
 
-def get_current_user_role() -> UserRole:
-    """현재 사용자의 역할 반환 (임시로 customer 반환, 나중에 세션/JWT 기반으로 변경)"""
-    # TODO: 실제 사용자 인증 시스템 구현 후 수정
-    return UserRole.CUSTOMER
+def get_current_user_role(request: Request) -> Optional[str]:
+    """현재 사용자의 역할 반환 (세션 기반)"""
+    user = request.session.get("user")
+    if user and "role" in user:
+        return user["role"]
+    return None
+
+# ==================== 로그인/로그아웃 라우트 ====================
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """로그인 페이지를 표시합니다."""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...), remember: Optional[bool] = Form(None), dev_mode: Optional[bool] = Form(None)):
+    """사용자 로그인을 처리합니다."""
+    # 개발자 모드가 체크되어 있으면 바로 관리자로 로그인
+    if dev_mode:
+        user = {"username": "developer", "role": UserRole.ADMIN.value}
+        request.session["user"] = user
+        if remember:
+            request.session.permanent = True
+        return RedirectResponse(url="/", status_code=303)
+
+    # 일반 로그인 (test/test)
+    if username == "test" and password == "test":
+        user = {"username": "test", "role": UserRole.CUSTOMER.value}
+        request.session["user"] = user
+        if remember:
+            request.session.permanent = True
+        return RedirectResponse(url="/", status_code=303)
+
+    # 로그인 실패
+    return templates.TemplateResponse("login.html", {"request": request, "error": "잘못된 사용자 이름 또는 비밀번호입니다."})
+
+@app.get("/logout")
+async def logout(request: Request):
+    """사용자 세션을 지워 로그아웃합니다."""
+    request.session.clear()
+    return RedirectResponse(url="/login")
 
 # ==================== 페이지 라우트들 ====================
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """홈 페이지 - 대시보드 형태"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
     stats = get_emotion_stats()
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("home.html", {
         "request": request,
-        "today": today,
         "stats": stats,
         "current_role": current_role
     })
@@ -104,26 +143,22 @@ async def home(request: Request):
 @app.get("/write", response_class=HTMLResponse)
 async def write_diary_page(request: Request):
     """일기 작성 페이지"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("write.html", {
         "request": request,
-        "today": today,
         "current_role": current_role
     })
 
 @app.get("/view", response_class=HTMLResponse)
 async def view_diary_page(request: Request):
     """일기 보기 페이지 (게시판)"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
     all_entries = load_diary_entries()
     all_entries.reverse()  # 최신순
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("view.html", {
         "request": request,
-        "today": today,
         "all_entries": all_entries,
         "total_entries": len(all_entries),
         "current_role": current_role
@@ -132,13 +167,11 @@ async def view_diary_page(request: Request):
 @app.get("/stats", response_class=HTMLResponse)
 async def emotion_stats_page(request: Request):
     """감정 통계/스코어 페이지"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
     stats = get_emotion_stats()
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("stats.html", {
         "request": request,
-        "today": today,
         "stats": stats,
         "current_role": current_role
     })
@@ -147,31 +180,27 @@ async def emotion_stats_page(request: Request):
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """설정 페이지 (고객용/관리자용 구분)"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("settings.html", {
         "request": request,
-        "today": today,
         "current_role": current_role
     })
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     """관리자 전용 페이지"""
-    current_role = get_current_user_role()
+    current_role = get_current_user_role(request)
     
     # 관리자가 아니면 접근 거부
-    if current_role != UserRole.ADMIN:
+    if current_role != UserRole.ADMIN.value:
         raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
     
-    today = datetime.now().strftime("%Y년 %m월 %d일")
     all_entries = load_diary_entries()
     stats = get_emotion_stats()
     
     return templates.TemplateResponse("admin.html", {
         "request": request,
-        "today": today,
         "all_entries": all_entries,
         "stats": stats,
         "current_role": current_role
