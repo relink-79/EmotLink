@@ -3,11 +3,19 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from datetime import datetime
+
+# DB관련
+from pymongo import MongoClient
+import bcrypt
+from jose import jwt
+
+import pprint
 import json
 import os
+import datetime
 from typing import Optional
 from enum import Enum
+import secrets
 
 app = FastAPI()
 
@@ -26,8 +34,32 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 # Simple data storage (나중에 데이터베이스로 교체 가능)
+client = MongoClient(host='localhost', port=27017)
+db = client["emotelink"]
+users = db["users"]
+'''
+test_user = {
+    "id" : "goranipie",
+    "password" : bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
+    "birthday" : datetime.datetime.utcnow(),
+    "name" : "김춘자",
+    "account_type" : 0,
+}
+print(users.insert_one(test_user).inserted_id)
+'''
+
 DIARY_FILE = "public_diary_board.json"
 USERS_FILE = "users.json"
+
+secret_file = []
+with open("./webserver/config/secret_key.json", "r") as f:
+    secret_file = json.load(f)
+SECRET_KEY = secret_file["SECRET_KEY"]
+
+def create_login_token(data, expire = 120):
+    user = data.copy()
+    user.update({"expire" : int((datetime.datetime.now() + datetime.timedelta(hours=expire)).strftime("%Y%m%d"))})
+    return jwt.encode(user, SECRET_KEY, "HS256")
 
 def load_diary_entries():
     """공개 일기 게시판 데이터 로드"""
@@ -99,46 +131,68 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...), remember: Optional[bool] = Form(None), dev_mode: Optional[bool] = Form(None)):
+async def login(request: Request, id: str = Form(...), password: str = Form(...), remember: Optional[bool] = Form(None), dev_mode: Optional[bool] = Form(None)):
     """사용자 로그인을 처리합니다."""
-    # 개발자 모드가 체크되어 있으면 바로 관리자로 로그인
-    if dev_mode:
-        user = {"username": "developer", "role": UserRole.ADMIN.value}
-        request.session["user"] = user
-        if remember:
-            request.session.permanent = True
-        return RedirectResponse(url="/", status_code=303)
+    print("로그인 시도 감지")
+    current_user = users.find_one({"id" : id}) # 유저 없을시 None반환
 
     # 일반 로그인 (test/test)
-    if username == "test" and password == "test":
-        user = {"username": "test", "role": UserRole.CUSTOMER.value}
-        request.session["user"] = user
-        if remember:
-            request.session.permanent = True
-        return RedirectResponse(url="/", status_code=303)
+    if (id != None) and \
+    (password != None) and \
+    (current_user != None) and \
+    (bcrypt.checkpw(password.encode("utf-8"), current_user["password"].encode("utf-8"))):
+        print("id 비번 일치")
+        user = {"id": id, "role": UserRole.CUSTOMER.value}
+        login_token = create_login_token(user)
+        print("login token : ", login_token)
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(
+            key="login_token",
+            value=login_token,
+            httponly=True,
+            samesite="lax",
+        )
+        return response
 
     # 로그인 실패
+    print("아이디 비번 불일치")
     return templates.TemplateResponse("login.html", {"request": request, "error": "잘못된 사용자 이름 또는 비밀번호입니다."})
+    # return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/logout")
 async def logout(request: Request):
     """사용자 세션을 지워 로그아웃합니다."""
-    request.session.clear()
-    return RedirectResponse(url="/login")
+    response = RedirectResponse(url="/login")
+    response.delete_cookie("login_token")
+    return response
 
 # ==================== 페이지 라우트들 ====================
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """홈 페이지 - 대시보드 형태"""
-    stats = get_emotion_stats()
-    current_role = get_current_user_role(request)
     
-    return templates.TemplateResponse("home.html", {
-        "request": request,
-        "stats": stats,
-        "current_role": current_role
-    })
+    token = request.cookies.get("login_token")
+    curr_user = None
+    
+    if token != None:
+        id = jwt.decode(token, SECRET_KEY, "HS256").get("id")
+        if id != None:
+            user_data = users.find_one({"id" : id})
+            if user_data != None:
+                curr_user = user_data
+            
+    if curr_user == None: # 로그인 안됐을 때
+        return RedirectResponse(url="/login", status_code=303)
+    else:
+        """홈 페이지 - 대시보드 형태""" # 로그인 됐을 때
+        stats = get_emotion_stats()
+        current_role = get_current_user_role(request)
+        
+        return templates.TemplateResponse("home.html", {
+            "request": request,
+            "stats": stats,
+            "current_role": current_role
+        })
 
 @app.get("/write", response_class=HTMLResponse)
 async def write_diary_page(request: Request):
