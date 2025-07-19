@@ -37,7 +37,7 @@ class UserRole(str, Enum):
 client = MongoClient(host='localhost', port=27017)
 db = client["emotelink"]
 users = db["users"]
-'''
+
 test_user = {
     "id" : "goranipie",
     "password" : bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
@@ -46,7 +46,6 @@ test_user = {
     "account_type" : 0,
 }
 print(users.insert_one(test_user).inserted_id)
-'''
 
 DIARY_FILE = "public_diary_board.json"
 USERS_FILE = "users.json"
@@ -117,10 +116,15 @@ def get_emotion_stats():
     }
 
 def get_current_user_role(request: Request) -> Optional[str]:
-    """현재 사용자의 역할 반환 (세션 기반)"""
-    user = request.session.get("user")
-    if user and "role" in user:
-        return user["role"]
+    """현재 사용자의 역할 반환 (JWT 토큰 기반)"""
+    try:
+        token = request.cookies.get("login_token")
+        if token:
+            decoded_token = jwt.decode(token, SECRET_KEY, "HS256")
+            return decoded_token.get("role")
+    except Exception:
+        # JWT 토큰이 유효하지 않거나 만료된 경우
+        pass
     return None
 
 # ==================== 로그인/로그아웃 라우트 ====================
@@ -165,6 +169,58 @@ async def logout(request: Request):
     response = RedirectResponse(url="/login")
     response.delete_cookie("login_token")
     return response
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page(request: Request):
+    """회원가입 페이지를 표시합니다."""
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@app.post("/signup")
+async def signup(request: Request, 
+                id: str = Form(...), 
+                name: str = Form(...), 
+                password: str = Form(...), 
+                password_confirm: str = Form(...), 
+                birthday: str = Form(...)):
+    """회원가입 정보를 받아 DB에 저장합니다."""
+    
+    # 1. 유효성 검사
+    if password != password_confirm:
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
+    if len(password) < 4:
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호는 4자 이상이어야 합니다."})
+    
+    # 2. 아이디 중복 확인
+    if users.find_one({"id": id}):
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "이미 사용 중인 아이디입니다."})
+
+    # 3. 스키마에 맞게 데이터 가공
+    try:
+        new_user = {
+            "id": id,
+            "name": name,
+            "password": bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
+            "birthday": datetime.datetime.strptime(birthday, "%Y-%m-%d"),
+            "account_type": 0,
+        }
+    except Exception as e:
+        # 데이터 가공 중 오류 발생 시, 사용자에게 에러를 알림 (터미널에는 로그를 남기는 것이 좋음)
+        print(f"Data processing error during signup: {e}")
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "입력된 정보가 올바르지 않습니다."})
+
+    # 4. 데이터베이스에 저장
+    try:
+        users.insert_one(new_user)
+    except Exception as e:
+        # DB 저장 중 심각한 오류 발생 시, 사용자에게 에러를 알림 (터미널에는 로그를 남기는 것이 좋음)
+        print(f"DB insertion error during signup: {e}")
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "회원가입 중 서버 오류가 발생했습니다."})
+
+    # 5. 성공 응답
+    return templates.TemplateResponse("signup.html", {
+        "request": request, 
+        "success": "회원가입이 완료되었습니다! 로그인 페이지로 이동하여 로그인해 주세요."
+    })
 
 # ==================== 페이지 라우트들 ====================
 
