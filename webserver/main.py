@@ -115,16 +115,21 @@ def get_emotion_stats():
         "total_score": total_score
     }
 
-def get_current_user_role(request: Request) -> Optional[str]:
-    """현재 사용자의 역할 반환 (JWT 토큰 기반)"""
+def get_current_user(request: Request) -> Optional[dict]:
+    """JWT 토큰에서 현재 사용자 정보(dict)를 반환합니다."""
     try:
         token = request.cookies.get("login_token")
         if token:
-            decoded_token = jwt.decode(token, SECRET_KEY, "HS256")
-            return decoded_token.get("role")
+            return jwt.decode(token, SECRET_KEY, "HS256")
     except Exception:
-        # JWT 토큰이 유효하지 않거나 만료된 경우
         pass
+    return None
+
+def get_current_user_role(request: Request) -> Optional[str]:
+    """현재 사용자의 역할 반환 (JWT 토큰 기반)"""
+    user = get_current_user(request)
+    if user:
+        return user.get("role")
     return None
 
 # ==================== 로그인/로그아웃 라우트 ====================
@@ -145,10 +150,17 @@ async def login(request: Request, id: str = Form(...), password: str = Form(...)
     (password != None) and \
     (current_user != None) and \
     (bcrypt.checkpw(password.encode("utf-8"), current_user["password"].encode("utf-8"))):
-        print("id 비번 일치")
-        user = {"id": id, "role": UserRole.CUSTOMER.value}
-        login_token = create_login_token(user)
-        print("login token : ", login_token)
+        
+        # 토큰에 포함할 사용자 정보 생성
+        user_info_for_token = {
+            "id": current_user.get("id"),
+            "name": current_user.get("name"),
+            "role": "customer"  # 역할은 직접 지정
+        }
+        
+        # 새 토큰 생성
+        login_token = create_login_token(user_info_for_token)
+        
         response = RedirectResponse(url="/", status_code=303)
         response.set_cookie(
             key="login_token",
@@ -227,83 +239,82 @@ async def signup(request: Request,
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     
-    token = request.cookies.get("login_token")
-    curr_user = None
-    
-    if token != None:
-        id = jwt.decode(token, SECRET_KEY, "HS256").get("id")
-        if id != None:
-            user_data = users.find_one({"id" : id})
-            if user_data != None:
-                curr_user = user_data
-            
-    if curr_user == None: # 로그인 안됐을 때
+    current_user = get_current_user(request)
+    if not current_user: # 로그인 안됐을 때
         return RedirectResponse(url="/login", status_code=303)
-    else:
-        """홈 페이지 - 대시보드 형태""" # 로그인 됐을 때
-        stats = get_emotion_stats()
-        current_role = get_current_user_role(request)
-        
-        return templates.TemplateResponse("home.html", {
-            "request": request,
-            "stats": stats,
-            "current_role": current_role
-        })
+    
+    # 로그인 됐을 때
+    stats = get_emotion_stats()
+    
+    return templates.TemplateResponse("home.html", {
+        "request": request,
+        "stats": stats,
+        "current_user": current_user, # 사용자 정보 전달
+    })
 
 @app.get("/write", response_class=HTMLResponse)
 async def write_diary_page(request: Request):
     """일기 작성 페이지"""
-    current_role = get_current_user_role(request)
-    
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+        
     return templates.TemplateResponse("write.html", {
         "request": request,
-        "current_role": current_role
+        "current_user": current_user, # 사용자 정보 전달
     })
 
 @app.get("/view", response_class=HTMLResponse)
 async def view_diary_page(request: Request):
     """일기 보기 페이지 (게시판)"""
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
     all_entries = load_diary_entries()
     all_entries.reverse()  # 최신순
-    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("view.html", {
         "request": request,
         "all_entries": all_entries,
         "total_entries": len(all_entries),
-        "current_role": current_role
+        "current_user": current_user, # 사용자 정보 전달
     })
 
 @app.get("/stats", response_class=HTMLResponse)
 async def emotion_stats_page(request: Request):
     """감정 통계/스코어 페이지"""
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+        
     stats = get_emotion_stats()
-    current_role = get_current_user_role(request)
     
     return templates.TemplateResponse("stats.html", {
         "request": request,
         "stats": stats,
-        "current_role": current_role
+        "current_user": current_user, # 사용자 정보 전달
     })
 
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """설정 페이지 (고객용/관리자용 구분)"""
-    current_role = get_current_user_role(request)
-    
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+        
     return templates.TemplateResponse("settings.html", {
         "request": request,
-        "current_role": current_role
+        "current_user": current_user, # 사용자 정보 전달
     })
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     """관리자 전용 페이지"""
-    current_role = get_current_user_role(request)
-    
-    # 관리자가 아니면 접근 거부
-    if current_role != UserRole.ADMIN.value:
+    current_user = get_current_user(request)
+    # 관리자가 아니거나 로그인하지 않았으면 접근 거부
+    if not current_user or current_user.get("role") != UserRole.ADMIN.value:
         raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
     
     all_entries = load_diary_entries()
@@ -313,7 +324,7 @@ async def admin_page(request: Request):
         "request": request,
         "all_entries": all_entries,
         "stats": stats,
-        "current_role": current_role
+        "current_user": current_user, # 사용자 정보 전달
     })
 
 # ==================== API 엔드포인트들 ====================
