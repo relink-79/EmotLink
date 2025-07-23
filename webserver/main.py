@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from pymongo import MongoClient
 import bcrypt
 from jose import jwt
+import uuid
 
 import pprint
 import json
@@ -18,9 +19,6 @@ from enum import Enum
 import secrets
 
 app = FastAPI()
-
-# 세션 미들웨어 추가
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key-change-in-production")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -33,11 +31,12 @@ class UserRole(str, Enum):
     CUSTOMER = "customer"
     ADMIN = "admin"
 
-# Simple data storage (나중에 데이터베이스로 교체 가능)
+# MongoDB
 client = MongoClient(host='localhost', port=27017)
 db = client["emotelink"]
 users = db["users"]
-
+diaries = db["diaries"]
+'''
 test_user = {
     "id" : "goranipie",
     "password" : bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
@@ -46,52 +45,50 @@ test_user = {
     "account_type" : 0,
 }
 print(users.insert_one(test_user).inserted_id)
-
-DIARY_FILE = "public_diary_board.json"
-USERS_FILE = "users.json"
-
+'''
+# SECRET_KEY for jwt
 secret_file = []
 with open("./webserver/config/secret_key.json", "r") as f:
     secret_file = json.load(f)
 SECRET_KEY = secret_file["SECRET_KEY"]
 
+DATE_STR_FORMAT = "%Y.%m.%d %H:%M" # ex) "2025.07.01 00:08"
+
+
 def create_login_token(data, expire = 120):
     user = data.copy()
-    user.update({"expire" : int((datetime.datetime.now() + datetime.timedelta(hours=expire)).strftime("%Y%m%d"))})
+    user.update({"expire" : int((datetime.datetime.now() + datetime.timedelta(hours=expire)).strftime(DATE_STR_FORMAT))})
     return jwt.encode(user, SECRET_KEY, "HS256")
 
-def load_diary_entries():
-    """공개 일기 게시판 데이터 로드"""
-    if os.path.exists(DIARY_FILE):
-        with open(DIARY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
+def load_diary_entries(request, max_limit = 0) -> list:
+    """load user diaries"""
+    user_id = get_current_user(request)["id"]
+    user_diaries: list = list(diaries.find({"author_id" : user_id}, limit = max_limit))
+    if user_diaries is None:
+        user_diaries = []
+    return user_diaries
+    
 
 def save_diary_entry(title, content, emotion, author, date):
-    """공개 일기 게시판에 데이터 저장"""
-    entries = load_diary_entries()
+    """save new diary in db"""
     new_entry = {
-        "id": len(entries) + 1,
+        "id": str(uuid.uuid4()),
         "title": title,
         "content": content,
         "emotion": emotion,
-        "author": author,
-        "date": date,
-        "created_at": datetime.now().isoformat()
+        "author_id": author,
+        "created_at": date,
+        "last_modified" : datetime.datetime.now().strftime(DATE_STR_FORMAT)
     }
-    entries.append(new_entry)
-    
-    with open(DIARY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(entries, f, ensure_ascii=False, indent=2)
-    
+    diaries.insert_one(new_entry)
     return new_entry
 
-def get_emotion_stats():
+def get_emotion_stats(request: Request):
     """감정 통계 데이터 생성"""
-    entries = load_diary_entries()
+    entries = load_diary_entries(request)
     emotion_counts = {}
-    total_entries = len(entries)
-    
+    total_entries = len(list(entries))
+        
     for entry in entries:
         emotion = entry.get('emotion', '😊')
         emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
@@ -244,7 +241,7 @@ async def home(request: Request):
         return RedirectResponse(url="/login", status_code=303)
     
     # 로그인 됐을 때
-    stats = get_emotion_stats()
+    stats = get_emotion_stats(request)
     
     return templates.TemplateResponse("home.html", {
         "request": request,
@@ -271,7 +268,7 @@ async def view_diary_page(request: Request):
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    all_entries = load_diary_entries()
+    all_entries = load_diary_entries(request)
     all_entries.reverse()  # 최신순
     
     return templates.TemplateResponse("view.html", {
@@ -288,7 +285,7 @@ async def emotion_stats_page(request: Request):
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
         
-    stats = get_emotion_stats()
+    stats = get_emotion_stats(request)
     
     return templates.TemplateResponse("stats.html", {
         "request": request,
@@ -317,8 +314,8 @@ async def admin_page(request: Request):
     if not current_user or current_user.get("role") != UserRole.ADMIN.value:
         raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
     
-    all_entries = load_diary_entries()
-    stats = get_emotion_stats()
+    all_entries = load_diary_entries(request)
+    stats = get_emotion_stats(request)
     
     return templates.TemplateResponse("admin.html", {
         "request": request,
@@ -338,17 +335,18 @@ async def save_diary(
     emotion: str = Form(default="😊")
 ):
     """일기 저장 API"""
-    today = datetime.now().strftime("%Y.%m.%d")
-    new_entry = save_diary_entry(title, content, emotion, author, today)
+    today: str = datetime.datetime.now().strftime(DATE_STR_FORMAT)
+    current_user = get_current_user(request)
+    new_entry = save_diary_entry(title, content, emotion, current_user.get("id"), today)
     return RedirectResponse(url="/view", status_code=303)
 
 @app.get("/api/diary-entries")
-async def get_diary_entries():
+async def get_diary_entries(request: Request):
     """공개 일기 게시판 API (JSON)"""
-    entries = load_diary_entries()
-    return {"entries": entries, "total": len(entries)}
+    entries = load_diary_entries(request)
+    return {"entries": entries, "total": len(list(entries))}
 
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(request: Request):
     """감정 통계 API (JSON)"""
-    return get_emotion_stats() 
+    return get_emotion_stats(request) 

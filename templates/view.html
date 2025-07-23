@@ -27,12 +27,12 @@
                     <!-- Card Header -->
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xl font-bold text-gray-800">{{ entry.title }}</h3>
-                        <span class="text-sm text-gray-400">{{ entry.date }}</span>
+                        <span class="text-sm text-gray-400">{{ entry.created_at }}</span>
                     </div>
                     
                     <!-- Author -->
                     <p class="text-sm text-gray-600 mb-4">
-                        <span class="font-semibold">{{ entry.author }}</span>님의 이야기
+                        <span class="font-semibold">{{ current_user.name }}</span>님의 이야기
                     </p>
                     
                     <!-- Content -->
