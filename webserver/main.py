@@ -2,7 +2,13 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import JSONResponse
+import logging
+
+# 로거 설정 (터미널에 에러를 기록하기 위함)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # DB관련
 from pymongo import MongoClient
@@ -323,6 +329,19 @@ async def admin_page(request: Request):
         "stats": stats,
         "current_user": current_user, # 사용자 정보 전달
     })
+    
+# ================== 예외 핸들러 =======================
+    
+@app.exception_handler(404)
+async def not_found_exception_handler(request: Request, exc: HTTPException):
+    # return 404.html when 404 not found
+    return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    # 500 internal server error, etc
+    logger.error(f"An unexpected error occurred: {exc}", exc_info=True)
+    return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
 
 # ==================== API 엔드포인트들 ====================
 
@@ -349,4 +368,4 @@ async def get_diary_entries(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     """감정 통계 API (JSON)"""
-    return get_emotion_stats(request) 
+    return get_emotion_stats(request)
