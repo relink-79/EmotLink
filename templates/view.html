@@ -27,7 +27,7 @@
                     <!-- Card Header -->
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xl font-bold text-gray-800">{{ entry.title }}</h3>
-                        <span class="text-sm text-gray-400">{{ entry.created_at }}</span>
+                        <span class="text-sm text-gray-400 needs-formatting" data-timestamp="{{ entry.created_at }}"></span>
                     </div>
                     
                     <!-- Author -->
@@ -58,6 +58,40 @@
 
 {% block extra_js %}
 <script>
+    function formatDateTime(timestamp) {
+        if (!timestamp) return '알 수 없음';
+
+        const date = new Date(timestamp);
+
+        const formatter = new Intl.DateTimeFormat('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        })
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return formatter.format(date);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // formats raw timestamp
+        const dateElements = document.querySelectorAll('.needs-formatting');
+        dateElements.forEach(span => {
+            const rawTimestamp = span.dataset.timestamp;
+            const formattedDate = formatDateTime(rawTimestamp);
+            span.textContent = formattedDate;
+        });
+    });
+
     // Add interaction feedback for heart/comment buttons
     document.querySelectorAll('button').forEach(button => {
         if (button.querySelector('.fa-heart') || button.querySelector('.fa-comment')) {

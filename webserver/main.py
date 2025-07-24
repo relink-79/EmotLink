@@ -6,15 +6,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 import logging
 
-# 로거 설정 (터미널에 에러를 기록하기 위함)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # DB관련
 from pymongo import MongoClient
 import bcrypt
 from jose import jwt
-import uuid
 
 import pprint
 import json
@@ -42,28 +37,29 @@ client = MongoClient(host='localhost', port=27017)
 db = client["emotelink"]
 users = db["users"]
 diaries = db["diaries"]
-'''
-test_user = {
-    "id" : "goranipie",
-    "password" : bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
-    "birthday" : datetime.datetime.utcnow(),
-    "name" : "김춘자",
-    "account_type" : 0,
-}
-print(users.insert_one(test_user).inserted_id)
-'''
+
 # SECRET_KEY for jwt
 secret_file = []
 with open("./webserver/config/secret_key.json", "r") as f:
     secret_file = json.load(f)
 SECRET_KEY = secret_file["SECRET_KEY"]
 
-DATE_STR_FORMAT = "%Y.%m.%d %H:%M" # ex) "2025.07.01 00:08"
+DATETIME_STR_FORMAT = "%Y.%m.%d %H:%M" # ex) "2025.07.01 00:08"
 
+# 로거 설정 (터미널에 에러를 기록)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+
+
+
+
+# ====================== server logics ==========================
 
 def create_login_token(data, expire = 120):
     user = data.copy()
-    user.update({"expire" : int((datetime.datetime.now() + datetime.timedelta(hours=expire)).strftime(DATE_STR_FORMAT))})
+    user.update({"expire" : int((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=expire)).timestamp())})
     return jwt.encode(user, SECRET_KEY, "HS256")
 
 def load_diary_entries(request, max_limit = 0) -> list:
@@ -78,13 +74,12 @@ def load_diary_entries(request, max_limit = 0) -> list:
 def save_diary_entry(title, content, emotion, author, date):
     """save new diary in db"""
     new_entry = {
-        "id": str(uuid.uuid4()),
         "title": title,
         "content": content,
         "emotion": emotion,
         "author_id": author,
         "created_at": date,
-        "last_modified" : datetime.datetime.now().strftime(DATE_STR_FORMAT)
+        "last_modified" : datetime.datetime.now(datetime.timezone.utc)
     }
     diaries.insert_one(new_entry)
     return new_entry
@@ -202,8 +197,8 @@ async def signup(request: Request,
     # 1. 유효성 검사
     if password != password_confirm:
         return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
-    if len(password) < 4:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호는 4자 이상이어야 합니다."})
+    if len(password) < 8:
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호는 8자 이상이어야 합니다."})
     
     # 2. 아이디 중복 확인
     if users.find_one({"id": id}):
@@ -354,9 +349,10 @@ async def save_diary(
     emotion: str = Form(default="😊")
 ):
     """일기 저장 API"""
-    today: str = datetime.datetime.now().strftime(DATE_STR_FORMAT)
-    current_user = get_current_user(request)
+    today: datetime  = datetime.datetime.now(datetime.timezone.utc)
+    current_user: dict | None = get_current_user(request)
     new_entry = save_diary_entry(title, content, emotion, current_user.get("id"), today)
+    
     return RedirectResponse(url="/view", status_code=303)
 
 @app.get("/api/diary-entries")
