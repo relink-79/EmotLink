@@ -20,6 +20,7 @@ from enum import Enum
 import secrets
 
 import requests # 추가
+import httpx # 추가
 from dotenv import load_dotenv # 추가
 
 # .env 파일에서 환경 변수 로드
@@ -169,7 +170,7 @@ def get_current_user_role(request: Request) -> Optional[str]:
 
 # ==================== 유틸리티 함수 ====================
 
-def get_ai_question(conversation_history: List[dict]) -> dict:
+async def get_ai_question(conversation_history: List[dict]) -> dict:
     """Solar API를 호출하여 다음 질문 또는 최종 메시지를 생성합니다."""
     
     headers = {
@@ -221,8 +222,10 @@ def get_ai_question(conversation_history: List[dict]) -> dict:
     }
 
     try:
-        response = requests.post(SOLAR_API_URL, headers=headers, json=payload)
-        response.raise_for_status() # 오류 발생 시 예외 처리
+        # requests.post를 httpx.AsyncClient.post로 변경
+        async with httpx.AsyncClient() as client:
+            response = await client.post(SOLAR_API_URL, headers=headers, json=payload, timeout=30.0)
+            response.raise_for_status() # 오류 발생 시 예외 처리
         
         ai_response = response.json()["choices"][0]["message"]["content"]
         
@@ -231,7 +234,7 @@ def get_ai_question(conversation_history: List[dict]) -> dict:
         else:
             return {"response": ai_response, "finished": False}
 
-    except requests.exceptions.RequestException as e:
+    except httpx.RequestError as e:
         print(f"Solar API 호출 오류: {e}")
         return {"response": "죄송합니다, AI 모델과 통신하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.", "finished": True}
 
@@ -479,8 +482,8 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     current_conversation = chat_sessions[user_id]
     current_conversation.append({"role": "user", "content": user_message.message})
     
-    # AI에게 다음 질문 생성 요청
-    ai_message = get_ai_question(current_conversation)
+    # AI에게 다음 질문 생성 요청 (await 추가)
+    ai_message = await get_ai_question(current_conversation)
     
     # AI 응답을 대화 기록에 추가 (role: 'assistant'로 변경)
     current_conversation.append({"role": "assistant", "content": ai_message["response"]})
