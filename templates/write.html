@@ -2,24 +2,186 @@
 
 {% block title %}새 일기 작성 - EmotLink{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* 채팅 모달 */
+    #chat-modal {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #chat-modal.hidden {
+        opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none;
+    }
+    .chat-bubble {
+        max-width: 75%;
+        padding: 0.75rem 1rem;
+        border-radius: 1.25rem;
+    }
+    .chat-bubble.user {
+        background-color: #4f46e5; /* indigo-600 */
+        color: white;
+        border-bottom-right-radius: 0.25rem;
+    }
+    .chat-bubble.ai {
+        background-color: #e5e7eb; /* gray-200 */
+        color: #1f2937; /* gray-800 */
+        border-bottom-left-radius: 0.25rem;
+    }
+    /* 스크롤바 커스텀 */
+    #chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+    #chat-messages::-webkit-scrollbar-thumb {
+        background-color: #a5b4fc;
+        border-radius: 3px;
+    }
+    #chat-messages::-webkit-scrollbar-track {
+        background-color: #e0e7ff;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen flex items-center justify-center">
+<div class="min-h-[calc(100vh-150px)] flex items-center justify-center">
     <div class="text-center">
-        <button type="button" 
+        <button id="start-chat-btn" type="button" 
                 class="px-20 py-16 bg-indigo-600 text-white text-4xl font-bold rounded-3xl hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-offset-4 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 shadow-2xl">
             <i class="fas fa-pencil-alt mr-4"></i>
             일기만들기
         </button>
     </div>
 </div>
+
+<!-- 채팅 모달 -->
+<div id="chat-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg h-[70vh] flex flex-col p-6">
+        <!-- 모달 헤더 -->
+        <div class="flex justify-between items-center pb-4 border-b border-gray-200">
+            <h3 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-comments-dollar text-indigo-500 mr-2"></i>
+                AI와 대화하며 일기 쓰기
+            </h3>
+            <button id="close-chat-btn" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <!-- 메시지 창 -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-4">
+            <!-- 메시지들이 여기에 추가됩니다 -->
+        </div>
+        <!-- 메시지 입력 폼 -->
+        <div class="pt-4 border-t border-gray-200">
+            <form id="chat-form" class="flex items-center space-x-3">
+                <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." autocomplete="off"
+                       class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                <button type="submit" id="chat-submit-btn"
+                        class="bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // 버튼 클릭 시 동작 (현재는 비어있음 - 나중에 모달 기능 추가 예정)
-    document.querySelector('button').addEventListener('click', function() {
-        console.log('일기만들기 버튼 클릭됨');
-        // 여기에 모달 열기 코드 추가 예정
+document.addEventListener('DOMContentLoaded', () => {
+    const startChatBtn = document.getElementById('start-chat-btn');
+    const closeChatBtn = document.getElementById('close-chat-btn');
+    const chatModal = document.getElementById('chat-modal');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatSubmitBtn = document.getElementById('chat-submit-btn');
+
+    // 모달 열기
+    startChatBtn.addEventListener('click', async () => {
+        chatModal.classList.remove('hidden');
+        resetChat();
+        
+        try {
+            const response = await fetch('/chat/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) throw new Error('채팅 시작에 실패했습니다.');
+
+            const data = await response.json();
+            addMessage(data.response, 'ai');
+        } catch (error) {
+            addMessage('오류: ' + error.message, 'ai');
+        }
     });
+
+    // 모달 닫기
+    closeChatBtn.addEventListener('click', () => {
+        chatModal.classList.add('hidden');
+    });
+
+    // 메시지 전송
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        addMessage(message, 'user');
+        chatInput.value = '';
+        toggleInput(true); // 입력 비활성화
+
+        try {
+            const response = await fetch('/chat/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            });
+
+            if (!response.ok) throw new Error('메시지 전송에 실패했습니다.');
+            
+            const data = await response.json();
+            addMessage(data.response, 'ai');
+
+            if (data.finished) {
+                toggleInput(true); // 대화 종료 시 계속 비활성화
+            } else {
+                toggleInput(false); // AI 응답 후 다시 활성화
+            }
+
+        } catch (error) {
+            addMessage('오류: ' + error.message, 'ai');
+            toggleInput(false);
+        }
+    });
+
+    // 메시지를 채팅창에 추가하는 함수
+    function addMessage(text, sender) {
+        const bubble = document.createElement('div');
+        bubble.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+        
+        const content = document.createElement('div');
+        content.className = `chat-bubble ${sender}`;
+        content.textContent = text;
+        
+        bubble.appendChild(content);
+        chatMessages.appendChild(bubble);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // 자동 스크롤
+    }
+
+    // 채팅창 리셋 함수
+    function resetChat() {
+        chatMessages.innerHTML = '';
+        toggleInput(false);
+    }
+    
+    // 입력창/버튼 활성/비활성화 함수
+    function toggleInput(disabled) {
+        chatInput.disabled = disabled;
+        chatSubmitBtn.disabled = disabled;
+        chatSubmitBtn.classList.toggle('opacity-50', disabled);
+        chatSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
+    }
+});
 </script>
 {% endblock %} 

@@ -1,8 +1,7 @@
 fastapi
 uvicorn
-jinja2
-python-multipart
-itsdangerous
-passlib[bcrypt]
-python-jose[cryptography]
-pywebview 
+pymongo
+bcrypt
+pyjwt
+python-dotenv
+requests 

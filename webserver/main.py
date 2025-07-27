@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse
+from pydantic import BaseModel
 import logging
 
 # DB관련
@@ -15,9 +15,27 @@ import pprint
 import json
 import os
 import datetime
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 import secrets
+
+import requests # 추가
+from dotenv import load_dotenv # 추가
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+SOLAR_API_KEY = os.getenv("API_KEY")
+SOLAR_API_URL = "https://api.upstage.ai/v1/solar/chat/completions"
+
+# --- 디버깅 코드 추가 ---
+if SOLAR_API_KEY:
+    print(f"✅ API 키가 성공적으로 로드되었습니다. (길이: {len(SOLAR_API_KEY)}, 시작: {SOLAR_API_KEY[:4]}...)" )
+else:
+    print("⚠️ API 키를 로드하지 못했습니다. .env 파일을 확인해주세요.")
+# --- 디버깅 코드 끝 ---
+
+
+# ==================== 전역 변수 및 설정 ====================
 
 app = FastAPI()
 
@@ -32,11 +50,30 @@ class UserRole(str, Enum):
     CUSTOMER = "customer"
     ADMIN = "admin"
 
-# MongoDB
-client = MongoClient(host='localhost', port=27017)
-db = client["emotelink"]
-users = db["users"]
-diaries = db["diaries"]
+# 데이터베이스 연결
+client = MongoClient('mongodb://localhost:27017/')
+db = client.emotlink_db
+users = db.users
+diaries = db.diaries
+
+# 채팅 대화 임시 저장소
+chat_sessions = {}
+
+# ----------------- AI_QUESTIONS 리스트 제거 -----------------
+# AI가 직접 질문을 생성하므로, 기존의 고정 질문 리스트는 제거합니다.
+# AI_QUESTIONS = [ ... ]
+
+
+# ==================== Pydantic 모델 ====================
+
+class Diary(BaseModel):
+    title: str
+    content: str
+    emotion: str
+    author: str
+
+class ChatMessage(BaseModel):
+    message: str
 
 # SECRET_KEY for jwt
 secret_file = []
@@ -129,6 +166,75 @@ def get_current_user_role(request: Request) -> Optional[str]:
     if user:
         return user.get("role")
     return None
+
+# ==================== 유틸리티 함수 ====================
+
+def get_ai_question(conversation_history: List[dict]) -> dict:
+    """Solar API를 호출하여 다음 질문 또는 최종 메시지를 생성합니다."""
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {SOLAR_API_KEY}"
+    }
+
+    user_message_count = len([msg for msg in conversation_history if msg["role"] == "user"])
+
+    if user_message_count < 5:
+        system_prompt = (
+            "당신은 사용자가 하루를 되돌아보며 일기를 쓸 수 있도록 돕는 친절하고 공감 능력 높은 AI 상담가입니다. "
+            "주어진 이전 대화 내용을 바탕으로, 사용자의 말에 먼저 자연스럽게 공감하며 짧은 맞장구를 쳐주세요. "
+            "그 다음에, 대화의 흐름에 맞춰 감정과 경험을 더 깊이 탐색할 수 있는 후속 질문을 하나만 던져주세요. "
+            "모든 답변은 부드럽고 자연스러운 한국어 대화체로 해주세요. 질문만 툭 던지는 느낌을 주면 안 됩니다."
+        )
+    else:
+        system_prompt = (
+            "지금까지의 대화 내용을 종합해서 따뜻하고 격려하는 어조로 마무리 인사를 해주세요. "
+            "그리고 대화가 모두 끝났음을 명확히 알려주세요. "
+            "반드시 메시지 끝에 'END_CHAT'이라는 키워드를 포함해야 합니다."
+        )
+
+    # 대화 기록을 단일 문자열로 변환
+    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['content']}" for msg in conversation_history])
+    
+    # API에 전달할 사용자 메시지 구성
+    user_prompt = f"""
+이전 대화 내용:
+---
+{history_string}
+---
+위 대화에 이어, 시스템 프롬프트의 지시에 따라 다음 응답을 생성해주세요.
+"""
+
+    # API에 보낼 메시지 형식 수정
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    payload = {
+        "model": "solar-1-mini-chat",
+        "messages": messages,
+        "temperature": 0.5,
+        "top_p": 0.9, # 파라미터 추가
+        "n": 1, # 파라미터 추가
+        "stream": False
+    }
+
+    try:
+        response = requests.post(SOLAR_API_URL, headers=headers, json=payload)
+        response.raise_for_status() # 오류 발생 시 예외 처리
+        
+        ai_response = response.json()["choices"][0]["message"]["content"]
+        
+        if "END_CHAT" in ai_response:
+            return {"response": ai_response.replace("END_CHAT", "").strip(), "finished": True}
+        else:
+            return {"response": ai_response, "finished": False}
+
+    except requests.exceptions.RequestException as e:
+        print(f"Solar API 호출 오류: {e}")
+        return {"response": "죄송합니다, AI 모델과 통신하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.", "finished": True}
+
 
 # ==================== 로그인/로그아웃 라우트 ====================
 
@@ -339,6 +445,54 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
 
 # ==================== API 엔드포인트들 ====================
+
+@app.post("/chat/start")
+async def start_chat(request: Request):
+    """채팅 세션을 초기화하고 고정된 첫 질문을 반환합니다."""
+    current_user = get_current_user(request)
+    if not current_user:
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
+    user_id = current_user.get("id")
+    
+    # 안정적인 대화 시작을 위해 첫 질문은 고정된 값으로 사용
+    first_question = "안녕하세요! 오늘 하루는 어떠셨나요?"
+    
+    # 대화 기록 초기화 및 첫 메시지 저장 (role: 'assistant'로 변경)
+    chat_sessions[user_id] = [{"role": "assistant", "content": first_question}]
+    
+    return JSONResponse(content={"response": first_question, "finished": False})
+
+@app.post("/chat/message")
+async def post_chat_message(request: Request, user_message: ChatMessage):
+    """사용자 메시지를 처리하고 다음 AI 응답을 반환합니다."""
+    current_user = get_current_user(request)
+    if not current_user:
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+    
+    user_id = current_user.get("id")
+
+    if user_id not in chat_sessions:
+        return JSONResponse(status_code=400, content={"error": "채팅 세션이 시작되지 않았습니다."})
+
+    # 현재 대화 기록에 사용자 메시지 추가
+    current_conversation = chat_sessions[user_id]
+    current_conversation.append({"role": "user", "content": user_message.message})
+    
+    # AI에게 다음 질문 생성 요청
+    ai_message = get_ai_question(current_conversation)
+    
+    # AI 응답을 대화 기록에 추가 (role: 'assistant'로 변경)
+    current_conversation.append({"role": "assistant", "content": ai_message["response"]})
+
+    # 대화 종료 시 세션 정리 (선택적)
+    if ai_message.get("finished"):
+        # 나중에 일기 생성 로직이 완료된 후 세션을 삭제하는 것이 더 적합할 수 있습니다.
+        # del chat_sessions[user_id]
+        pass
+        
+    return JSONResponse(content=ai_message)
+
 
 @app.post("/save-diary")
 async def save_diary(
