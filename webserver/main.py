@@ -10,11 +10,14 @@ import logging
 from pymongo import MongoClient
 import bcrypt
 from jose import jwt
+import redis
+import uuid_utils
 
 import pprint
 import json
 import os
 import datetime
+import time
 from typing import Optional, List
 from enum import Enum
 import secrets
@@ -58,7 +61,26 @@ users = db.users
 diaries = db.diaries
 
 # 채팅 대화 임시 저장소
-chat_sessions = {}
+chat_sessions = redis.Redis(host='localhost', port=21101, db=0)
+''' redis sorted set
+chat:messages:{room_id} => json
+{
+    "messsage_id": message_id,
+    "time": timestamp,
+    "role": role,
+    "user_id": user_id,
+    "message": text,
+}
+'''
+
+chat_users = redis.Redis(host='localhost', port=21101, db=1)
+''' redis set
+chat:{room_id} => json
+{
+    "relink",
+    "goranipie"
+}
+'''
 
 # ----------------- AI_QUESTIONS 리스트 제거 -----------------
 # AI가 직접 질문을 생성하므로, 기존의 고정 질문 리스트는 제거합니다.
@@ -74,7 +96,9 @@ class Diary(BaseModel):
     author: str
 
 class ChatMessage(BaseModel):
+    room_id: str
     message: str
+    
 
 # SECRET_KEY for jwt
 secret_file = []
@@ -195,7 +219,7 @@ async def get_ai_question(conversation_history: List[dict]) -> dict:
         )
 
     # 대화 기록을 단일 문자열로 변환
-    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['content']}" for msg in conversation_history])
+    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['message']}" for msg in conversation_history])
     
     # API에 전달할 사용자 메시지 구성
     user_prompt = f"""
@@ -257,7 +281,7 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         "감정: [기쁨, 평온, 걱정, 슬픔, 화남 중 가장 적절한 감정 하나만 텍스트로 작성]"
     )
     
-    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['content']}" for msg in conversation_history])
+    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['message']}" for msg in conversation_history])
 
     user_prompt = f"""
 다음은 사용자와 상담가 간의 대화 내용입니다.
@@ -321,6 +345,37 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         fallback_content = "대화를 바탕으로 일기를 생성하는 데 실패했습니다.\n\n" + history_string
         save_diary_entry("일기 생성 실패", fallback_content, "😟", user_id, datetime.datetime.now(datetime.timezone.utc))
 
+
+def send_message(room_id, user_id, text, role):
+    key = f"chat:messages:{room_id}"
+    timestamp = time.time() # sort with time(=score) (redis sorted set)
+    message_id = str(uuid_utils.uuid7())
+    
+    data = json.dumps({
+        "messsage_id": message_id,
+        "time": timestamp,
+        "role": role,
+        "user_id": user_id,
+        "message": text,
+    })
+    print("전송할 메시지 :\n" + data)
+    chat_sessions.zadd(key, {data: timestamp})
+    print("send_message 호출 및 chat_sessions.zadd 완료")
+    keys = chat_sessions.keys('*')
+    for key in keys:
+        print(key)
+    
+    return True
+    
+def get_messages(room_id, cnt=12):
+    print("서버에서 채팅 가져오는중...")
+    key = f"chat:messages:{room_id}"
+    
+    raw = chat_sessions.zrevrange(key, 0, cnt - 1)
+    messages = [json.loads(msg) for msg in raw]
+    messages.reverse()
+    print(messages)
+    return messages
 
 # ==================== 로그인/로그아웃 라우트 ====================
 
@@ -538,16 +593,22 @@ async def start_chat(request: Request):
     current_user = get_current_user(request)
     if not current_user:
         return JSONResponse(status_code=401, content={"error": "Authentication required"})
-
+ 
     user_id = current_user.get("id")
+    room_id = str(uuid_utils.uuid7())
+    chat_session_key = f"chat:messages:{room_id}"
+    message_id = str(uuid_utils.uuid7())
+    
+    print(f"첫 채팅 시작 room_id: {room_id}")
     
     # 안정적인 대화 시작을 위해 첫 질문은 고정된 값으로 사용
     first_question = "안녕하세요! 오늘 하루는 어떠셨나요?"
     
+    send_message(room_id, user_id, first_question, "assistant")
+    chat_users.sadd(f"chat:participants:{room_id}", user_id)
     # 대화 기록 초기화 및 첫 메시지 저장 (role: 'assistant'로 변경)
-    chat_sessions[user_id] = [{"role": "assistant", "content": first_question}]
     
-    return JSONResponse(content={"response": first_question, "finished": False})
+    return JSONResponse(content={"response": first_question, "finished": False, "room_id": room_id})
 
 @app.post("/chat/message")
 async def post_chat_message(request: Request, user_message: ChatMessage):
@@ -557,26 +618,35 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
         return JSONResponse(status_code=401, content={"error": "Authentication required"})
     
     user_id = current_user.get("id")
+    room_id = user_message.room_id
+    key = f"chat:messages:{room_id}"
 
-    if user_id not in chat_sessions:
+    if chat_sessions.exists(key) == 0:
         return JSONResponse(status_code=400, content={"error": "채팅 세션이 시작되지 않았습니다."})
+    
+    if not chat_users.sismember(f"chat:participants:{room_id}", user_id):
+        print(chat_users.smembers(f"chat:participants:{room_id}"))
+        return JSONResponse(status_code=400, content={"error": "채팅에 접근할 권한이 부족합니다."})
 
     # 현재 대화 기록에 사용자 메시지 추가
-    current_conversation = chat_sessions[user_id]
-    current_conversation.append({"role": "user", "content": user_message.message})
+    print(f"redis 사용자 채팅 추가 시작 : {user_message.message}")
+    send_message(room_id, user_id, user_message.message, "user")
+    print(f"redis 사용자 채팅 추가 완료 : {user_message.message}")
+    current_conversation = get_messages(room_id, 30)
     
     # AI에게 다음 질문 생성 요청 (await 추가)
     ai_message = await get_ai_question(current_conversation)
     
     # AI 응답을 대화 기록에 추가 (role: 'assistant'로 변경)
-    current_conversation.append({"role": "assistant", "content": ai_message["response"]})
+    send_message(room_id, user_id, ai_message, "assistant")
 
     # 대화 종료 시 일기 자동 생성 및 세션 정리
     if ai_message.get("finished"):
         # 백그라운드에서 일기 생성 및 저장 실행 (응답이 사용자에게 즉시 가도록)
         await generate_and_save_diary(user_id, current_conversation)
-        if user_id in chat_sessions:
-            del chat_sessions[user_id]
+        if chat_sessions.exists(key) == 1 or chat_users.exists(f"chat:participants:{room_id}"):
+            chat_sessions.delete(key)
+            chat_users.delete(f"chat:participants:{room_id}")
         
     return JSONResponse(content=ai_message)
 

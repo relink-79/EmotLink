@@ -87,6 +87,8 @@
 
 {% block extra_js %}
 <script>
+let roomId = "";
+
 document.addEventListener('DOMContentLoaded', () => {
     const startChatBtn = document.getElementById('start-chat-btn');
     const closeChatBtn = document.getElementById('close-chat-btn');
@@ -110,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('채팅 시작에 실패했습니다.');
 
             const data = await response.json();
+            console.log(data)
+            roomId = data["room_id"]
             addMessage(data.response, 'ai');
         } catch (error) {
             addMessage('오류: ' + error.message, 'ai');
@@ -135,8 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/chat/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({
+                    message: message,
+                    room_id: roomId
+                })
             });
+            console.log("room_id : " + roomId)
 
             if (!response.ok) throw new Error('메시지 전송에 실패했습니다.');
             
