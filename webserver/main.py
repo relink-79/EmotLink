@@ -239,6 +239,89 @@ async def get_ai_question(conversation_history: List[dict]) -> dict:
         return {"response": "죄송합니다, AI 모델과 통신하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.", "finished": True}
 
 
+async def generate_and_save_diary(user_id: str, conversation_history: List[dict]):
+    """Solar API를 호출하여 대화 내용 기반으로 일기를 생성하고 저장합니다."""
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {SOLAR_API_KEY}"
+    }
+
+    system_prompt = (
+        "당신은 주어진 대화 내용을 바탕으로 감정이 담긴 일기를 작성하는 작가입니다. "
+        "대화의 핵심 내용을 요약하여, 사용자의 경험과 감정이 잘 드러나는 자연스러운 일기 형식의 글을 작성해주세요. "
+        "응답은 반드시 다음 형식에 맞춰주세요. 각 항목은 줄바꿈으로 구분합니다.\n"
+        "제목: [여기에 20자 내외의 일기 제목 작성]\n"
+        "내용:\n"
+        "[여기에 3~4문단으로 구성된 일기 본문 작성]\n"
+        "감정: [기쁨, 평온, 걱정, 슬픔, 화남 중 가장 적절한 감정 하나만 텍스트로 작성]"
+    )
+    
+    history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['content']}" for msg in conversation_history])
+
+    user_prompt = f"""
+다음은 사용자와 상담가 간의 대화 내용입니다.
+---
+{history_string}
+---
+위 대화 내용을 바탕으로, 시스템 프롬프트의 지시에 따라 일기를 생성해주세요.
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    payload = {
+        "model": "solar-1-mini-chat",
+        "messages": messages,
+        "temperature": 0.7,
+        "stream": False
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(SOLAR_API_URL, headers=headers, json=payload, timeout=60.0)
+            response.raise_for_status()
+        
+        diary_text = response.json()["choices"][0]["message"]["content"]
+        
+        # 생성된 텍스트에서 제목, 내용, 감정 파싱
+        lines = diary_text.strip().split('\n')
+        
+        parsed_data = {}
+        is_content_section = False
+
+        for line in lines:
+            line_stripped = line.strip()
+            if line_stripped.startswith("제목:"):
+                parsed_data['title'] = line_stripped.replace("제목:", "").strip()
+                is_content_section = False
+            elif line_stripped.startswith("내용:"):
+                is_content_section = True
+                parsed_data['content'] = []
+            elif line_stripped.startswith("감정:"):
+                parsed_data['emotion'] = line_stripped.replace("감정:", "").strip()
+                is_content_section = False
+            elif is_content_section:
+                parsed_data['content'].append(line)
+
+        title = parsed_data.get('title', "자동 생성된 일기")
+        content = "\n".join(parsed_data.get('content', ["내용을 생성하지 못했습니다."])).strip()
+        emotion_text = parsed_data.get('emotion', "기쁨")
+
+        emotion_map = {'기쁨': '😊', '평온': '😌', '걱정': '😟', '슬픔': '😢', '화남': '😠'}
+        emotion = emotion_map.get(emotion_text, "😊")
+        
+        save_diary_entry(title, content, emotion, user_id, datetime.datetime.now(datetime.timezone.utc))
+        print(f"✅ Diary automatically saved for user {user_id}")
+
+    except Exception as e:
+        print(f"❌ 일기 생성 또는 저장 중 오류 발생: {e}")
+        fallback_content = "대화를 바탕으로 일기를 생성하는 데 실패했습니다.\n\n" + history_string
+        save_diary_entry("일기 생성 실패", fallback_content, "😟", user_id, datetime.datetime.now(datetime.timezone.utc))
+
+
 # ==================== 로그인/로그아웃 라우트 ====================
 
 @app.get("/login", response_class=HTMLResponse)
@@ -488,11 +571,12 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     # AI 응답을 대화 기록에 추가 (role: 'assistant'로 변경)
     current_conversation.append({"role": "assistant", "content": ai_message["response"]})
 
-    # 대화 종료 시 세션 정리 (선택적)
+    # 대화 종료 시 일기 자동 생성 및 세션 정리
     if ai_message.get("finished"):
-        # 나중에 일기 생성 로직이 완료된 후 세션을 삭제하는 것이 더 적합할 수 있습니다.
-        # del chat_sessions[user_id]
-        pass
+        # 백그라운드에서 일기 생성 및 저장 실행 (응답이 사용자에게 즉시 가도록)
+        await generate_and_save_diary(user_id, current_conversation)
+        if user_id in chat_sessions:
+            del chat_sessions[user_id]
         
     return JSONResponse(content=ai_message)
 
