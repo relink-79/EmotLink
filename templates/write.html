@@ -88,6 +88,7 @@
 {% block extra_js %}
 <script>
 let roomId = "";
+let finished = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     const startChatBtn = document.getElementById('start-chat-btn');
@@ -122,7 +123,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 모달 닫기
     closeChatBtn.addEventListener('click', () => {
-        chatModal.classList.add('hidden');
+        if (finished) {
+            // goto /view if session ended
+            location.href = "/view";
+        }
+        else {
+            chatModal.classList.add('hidden');
+        }
     });
 
     // 메시지 전송
@@ -153,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.finished) {
                 toggleInput(true); // 대화 종료 시 계속 비활성화
+                finished = true;
             } else {
                 toggleInput(false); // AI 응답 후 다시 활성화
             }
