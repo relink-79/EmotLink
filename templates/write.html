@@ -13,21 +13,6 @@
         transform: scale(0.95);
         pointer-events: none;
     }
-    .chat-bubble {
-        max-width: 75%;
-        padding: 0.75rem 1rem;
-        border-radius: 1.25rem;
-    }
-    .chat-bubble.user {
-        background-color: #4f46e5; /* indigo-600 */
-        color: white;
-        border-bottom-right-radius: 0.25rem;
-    }
-    .chat-bubble.ai {
-        background-color: #e5e7eb; /* gray-200 */
-        color: #1f2937; /* gray-800 */
-        border-bottom-left-radius: 0.25rem;
-    }
     /* 스크롤바 커스텀 */
     #chat-messages::-webkit-scrollbar {
         width: 6px;
@@ -67,7 +52,7 @@
             </button>
         </div>
         <!-- 메시지 창 -->
-        <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-4">
+        <div id="chat-messages" class="flex-1 overflow-y-auto py-4">
             <!-- 메시지들이 여기에 추가됩니다 -->
         </div>
         <!-- 메시지 입력 폼 -->
@@ -173,16 +158,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 메시지를 채팅창에 추가하는 함수
     function addMessage(text, sender) {
+        const messageContainer = document.createElement('div');
+        messageContainer.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
+        
         const bubble = document.createElement('div');
-        bubble.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+        bubble.textContent = text;
         
-        const content = document.createElement('div');
-        content.className = `chat-bubble ${sender}`;
-        content.textContent = text;
+        let bubbleClasses = 'max-w-[75%] px-4 py-2 rounded-2xl break-words shadow-md';
         
-        bubble.appendChild(content);
-        chatMessages.appendChild(bubble);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // 자동 스크롤
+        if (sender === 'user') {
+            bubbleClasses += ' bg-indigo-600 text-white rounded-br-lg';
+        } else {
+            bubbleClasses += ' bg-gray-200 text-gray-800 rounded-bl-lg';
+        }
+        
+        bubble.className = bubbleClasses;
+        
+        messageContainer.appendChild(bubble);
+        chatMessages.appendChild(messageContainer);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     // 채팅창 리셋 함수
