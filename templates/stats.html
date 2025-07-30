@@ -2,23 +2,170 @@
 
 {% block title %}감정 스코어 - EmotLink{% endblock %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
-<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
-    <!-- Header -->
-    <div class="flex items-center space-x-4 mb-8">
-        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-            <i class="fas fa-chart-line text-indigo-600 text-xl"></i>
+<main class="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-chart-pie text-white text-3xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">감정 통계</h1>
+                    <p class="text-lg text-gray-500 mt-1">나의 감정 변화를 한눈에 살펴보세요.</p>
+                </div>
+            </div>
+            <div class="mt-4 sm:mt-0 text-right">
+                <p class="text-sm text-gray-500">총 일기 수</p>
+                <p class="text-2xl font-bold text-indigo-600">{{ stats.total_entries }}개</p>
+            </div>
         </div>
-        <div>
-            <h2 class="text-3xl font-bold text-gray-800">감정 스코어</h2>
-            <p class="text-gray-500">현재 페이지는 준비 중입니다.</p>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Emotion Distribution & Scores -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Emotion Distribution Chart -->
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 border border-gray-100">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">최근 감정 분포</h3>
+                    <div class="relative h-80">
+                        <canvas id="emotionPieChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detailed Emotion Scores -->
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 border border-gray-100">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">세부 감정 분석 (평균)</h3>
+                    <p class="text-gray-500 mb-6 -mt-4">AI가 분석한 나의 마음 속 깊은 감정들을 수치로 확인해보세요.</p>
+                    <div class="space-y-6">
+                        <!-- 우울감 -->
+                        <div class="group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-lg text-blue-800">우울감</span>
+                                <span class="font-mono text-xl text-blue-600 bg-blue-100 px-2 py-0.5 rounded-md">{{ stats.avg_depression | round(1) }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden border border-gray-300 shadow-inner">
+                                <div class="bg-gradient-to-r from-blue-400 to-blue-600 h-full rounded-full transition-all duration-500 ease-out" 
+                                     style="width: {{ stats.avg_depression }}%;">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 소외감 -->
+                        <div class="group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-lg text-purple-800">소외감</span>
+                                <span class="font-mono text-xl text-purple-600 bg-purple-100 px-2 py-0.5 rounded-md">{{ stats.avg_isolation | round(1) }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden border border-gray-300 shadow-inner">
+                                <div class="bg-gradient-to-r from-purple-400 to-purple-600 h-full rounded-full transition-all duration-500 ease-out" 
+                                     style="width: {{ stats.avg_isolation }}%;">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 좌절감 -->
+                        <div class="group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-lg text-red-800">좌절감</span>
+                                <span class="font-mono text-xl text-red-600 bg-red-100 px-2 py-0.5 rounded-md">{{ stats.avg_frustration | round(1) }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden border border-gray-300 shadow-inner">
+                                <div class="bg-gradient-to-r from-red-400 to-red-600 h-full rounded-full transition-all duration-500 ease-out" 
+                                     style="width: {{ stats.avg_frustration }}%;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Overall Score -->
+            <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 sm:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 text-white flex flex-col justify-center items-center text-center">
+                 <h3 class="text-2xl font-bold mb-4 opacity-80">종합 마음 점수</h3>
+                 <div class="relative">
+                    <p class="text-7xl font-black tracking-tighter">{{ stats.average_score | round(2) }}</p>
+                    <span class="absolute -right-8 top-1 text-2xl font-bold opacity-70">/ 5</span>
+                 </div>
+                 <p class="mt-4 opacity-80 max-w-xs">
+                     다양한 감정들을 종합하여 계산한 나의 평균 마음 상태 점수입니다.
+                 </p>
+            </div>
         </div>
     </div>
 
-    <div class="text-center py-20 bg-gray-50 rounded-lg border border-gray-200">
-        <i class="fas fa-tools text-5xl text-gray-400 mb-4"></i>
-        <h3 class="text-2xl font-semibold text-gray-700">열심히 개발 중이에요!</h3>
-        <p class="text-gray-500 mt-2">더 멋진 모습으로 찾아뵙겠습니다. 잠시만 기다려주세요.</p>
-    </div>
-</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('emotionPieChart');
+    if (!ctx) return;
+
+    const emotionData = {{ stats.emotion_counts | tojson }};
+    const labels = Object.keys(emotionData);
+    const data = Object.values(emotionData);
+
+    const backgroundColors = {
+        '😊': 'rgba(76, 175, 80, 0.8)',  // 기쁨 (Green)
+        '😄': 'rgba(255, 235, 59, 0.8)', // 행복 (Yellow)
+        '😌': 'rgba(3, 169, 244, 0.8)',   // 평온 (Blue)
+        '🙏': 'rgba(255, 152, 0, 0.8)',  // 감사 (Orange)
+        '😟': 'rgba(156, 39, 176, 0.8)', // 걱정 (Purple)
+        '😰': 'rgba(121, 85, 72, 0.8)',  // 걱정 (Brown)
+        '😢': 'rgba(33, 150, 243, 0.8)',  // 슬픔 (Blue)
+        '😠': 'rgba(244, 67, 54, 0.8)',   // 화남 (Red)
+        '😔': 'rgba(96, 125, 139, 0.8)'  // 외로움 (Blue Grey)
+    };
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '감정 분포',
+                data: data,
+                backgroundColor: labels.map(label => backgroundColors[label] || 'rgba(201, 203, 207, 0.8)'),
+                borderColor: 'rgba(255, 255, 255, 0.7)',
+                borderWidth: 2,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#4b5563',
+                        font: {
+                            size: 14,
+                            family: 'sans-serif'
+                        },
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    titleFont: { size: 16 },
+                    bodyFont: { size: 14 },
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed !== null) {
+                                label += context.parsed + '회';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+</main>
 {% endblock %} 

@@ -133,7 +133,7 @@ def load_diary_entries(request, max_limit = 0) -> list:
     return user_diaries
     
 
-def save_diary_entry(title, content, emotion, author, date):
+def save_diary_entry(title, content, emotion, author, date, depression=0, isolation=0, frustration=0):
     """save new diary in db"""
     new_entry = {
         "title": title,
@@ -141,38 +141,61 @@ def save_diary_entry(title, content, emotion, author, date):
         "emotion": emotion,
         "author_id": author,
         "created_at": date,
-        "last_modified" : datetime.datetime.now(datetime.timezone.utc)
+        "last_modified" : datetime.datetime.now(datetime.timezone.utc),
+        "depression": depression,
+        "isolation": isolation,
+        "frustration": frustration
     }
     diaries.insert_one(new_entry)
     return new_entry
 
 def get_emotion_stats(request: Request):
     """감정 통계 데이터 생성"""
-    entries = load_diary_entries(request)
+    diary_entries = list(load_diary_entries(request))
+    total_entries = len(diary_entries)
+    
+    if total_entries == 0:
+        return {
+            "emotion_counts": {},
+            "total_entries": 0,
+            "average_score": 0,
+            "total_score": 0,
+            "avg_depression": 0,
+            "avg_isolation": 0,
+            "avg_frustration": 0,
+        }
+
     emotion_counts = {}
-    total_entries = len(list(entries))
-        
-    for entry in entries:
+    total_depression = 0
+    total_isolation = 0
+    total_frustration = 0
+
+    for entry in diary_entries:
         emotion = entry.get('emotion', '😊')
         emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
-    
-    # 감정별 점수 계산 (예시)
+        
+        total_depression += entry.get('depression', 0)
+        total_isolation += entry.get('isolation', 0)
+        total_frustration += entry.get('frustration', 0)
+
+    # 기존 감정 스코어 계산 (예시)
     emotion_scores = {
-        '😊': 5,  # 기쁨
-        '😌': 4,  # 평온
-        '😟': 2,  # 걱정
-        '😢': 1,  # 슬픔
-        '😠': 1   # 화남
+        '😊': 5, '😄': 5, '😌': 4, '🙏': 4, 
+        '😟': 2, '😰': 2, 
+        '😢': 1, '😠': 1, '😔': 1
     }
     
     total_score = sum(emotion_scores.get(emotion, 3) * count for emotion, count in emotion_counts.items())
-    average_score = total_score / total_entries if total_entries > 0 else 0
-    
+    average_score = total_score / total_entries
+
     return {
         "emotion_counts": emotion_counts,
         "total_entries": total_entries,
         "average_score": round(average_score, 2),
-        "total_score": total_score
+        "total_score": total_score,
+        "avg_depression": round(total_depression / total_entries, 1),
+        "avg_isolation": round(total_isolation / total_entries, 1),
+        "avg_frustration": round(total_frustration / total_entries, 1),
     }
 
 def get_current_user(request: Request) -> Optional[dict]:
@@ -272,24 +295,28 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
     }
 
     system_prompt = (
-        "당신은 주어진 대화 내용을 바탕으로 감정이 담긴 일기를 작성하는 작가입니다. "
+        "당신은 주어진 대화 내용을 바탕으로 감정이 담긴 일기를 작성하고, 특정 감정 점수를 분석하는 전문가입니다. "
         "대화의 핵심 내용을 요약하여, 사용자의 경험과 감정이 잘 드러나는 자연스러운 일기 형식의 글을 작성해주세요. "
-        "응답은 반드시 다음 형식에 맞춰주세요. 각 항목은 줄바꿈으로 구분합니다.\n"
+        "응답은 반드시 다음 형식에 맞춰 각 항목을 줄바꿈으로 구분해야 합니다.\n"
         "제목: [여기에 20자 내외의 일기 제목 작성]\n"
         "내용:\n"
         "[여기에 3~4문단으로 구성된 일기 본문 작성]\n"
-        "감정: [기쁨, 평온, 걱정, 슬픔, 화남 중 가장 적절한 감정 하나만 텍스트로 작성]"
+        "감정: [기쁨, 평온, 걱정, 슬픔, 화남 중 가장 적절한 감정 하나만 텍스트로 작성]\n"
+        "--- 감정 점수 분석 ---\n"
+        "우울감: [0부터 100 사이의 정수 점수]\n"
+        "소외감: [0부터 100 사이의 정수 점수]\n"
+        "좌절감: [0부터 100 사이의 정수 점수]"
     )
     
     history_string = "\n".join([f"{'상담가' if msg['role'] == 'assistant' else '사용자'}: {msg['message']}" for msg in conversation_history])
 
     user_prompt = f"""
-다음은 사용자와 상담가 간의 대화 내용입니다.
----
-{history_string}
----
-위 대화 내용을 바탕으로, 시스템 프롬프트의 지시에 따라 일기를 생성해주세요.
-"""
+    다음은 사용자와 상담가 간의 대화 내용입니다.
+    ---
+    {history_string}
+    ---
+    위 대화 내용을 바탕으로, 시스템 프롬프트의 지시에 따라 일기와 감정 점수를 생성해주세요.
+    """
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -310,10 +337,10 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         
         diary_text = response.json()["choices"][0]["message"]["content"]
         
-        # 생성된 텍스트에서 제목, 내용, 감정 파싱
+        # 생성된 텍스트에서 제목, 내용, 감정 및 점수 파싱
         lines = diary_text.strip().split('\n')
         
-        parsed_data = {}
+        parsed_data = {'content': []}
         is_content_section = False
 
         for line in lines:
@@ -323,27 +350,44 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
                 is_content_section = False
             elif line_stripped.startswith("내용:"):
                 is_content_section = True
-                parsed_data['content'] = []
             elif line_stripped.startswith("감정:"):
                 parsed_data['emotion'] = line_stripped.replace("감정:", "").strip()
                 is_content_section = False
-            elif is_content_section:
+            elif line_stripped.startswith("우울감:"):
+                parsed_data['depression'] = int(line_stripped.replace("우울감:", "").strip())
+            elif line_stripped.startswith("소외감:"):
+                parsed_data['isolation'] = int(line_stripped.replace("소외감:", "").strip())
+            elif line_stripped.startswith("좌절감:"):
+                parsed_data['frustration'] = int(line_stripped.replace("좌절감:", "").strip())
+            elif is_content_section and "--- 감정 점수 분석 ---" not in line_stripped:
                 parsed_data['content'].append(line)
 
         title = parsed_data.get('title', "자동 생성된 일기")
         content = "\n".join(parsed_data.get('content', ["내용을 생성하지 못했습니다."])).strip()
         emotion_text = parsed_data.get('emotion', "기쁨")
+        
+        depression_score = parsed_data.get('depression', 0)
+        isolation_score = parsed_data.get('isolation', 0)
+        frustration_score = parsed_data.get('frustration', 0)
 
         emotion_map = {'기쁨': '😊', '평온': '😌', '걱정': '😟', '슬픔': '😢', '화남': '😠'}
         emotion = emotion_map.get(emotion_text, "😊")
         
-        save_diary_entry(title, content, emotion, user_id, datetime.datetime.now(datetime.timezone.utc))
-        print(f"✅ Diary automatically saved for user {user_id}")
+        save_diary_entry(
+            title, content, emotion, user_id, datetime.datetime.now(datetime.timezone.utc),
+            depression=depression_score,
+            isolation=isolation_score,
+            frustration=frustration_score
+        )
+        print(f"✅ Diary with emotion scores automatically saved for user {user_id}")
 
     except Exception as e:
         print(f"❌ 일기 생성 또는 저장 중 오류 발생: {e}")
         fallback_content = "대화를 바탕으로 일기를 생성하는 데 실패했습니다.\n\n" + history_string
-        save_diary_entry("일기 생성 실패", fallback_content, "😟", user_id, datetime.datetime.now(datetime.timezone.utc))
+        save_diary_entry(
+            "일기 생성 실패", fallback_content, "😟", user_id, 
+            datetime.datetime.now(datetime.timezone.utc)
+        )
 
 
 def send_message(room_id, user_id, text, role):
