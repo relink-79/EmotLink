@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,6 +16,7 @@ import uuid_utils
 import pprint
 import json
 import os
+import sys
 import datetime
 import time
 from typing import Optional, List
@@ -25,6 +26,12 @@ import secrets
 import requests # 추가
 import httpx # 추가
 from dotenv import load_dotenv # 추가
+
+# 서버 로직 분리 모듈
+from .web_middleware import *
+
+
+
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -45,6 +52,9 @@ app = FastAPI()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# add middleware
+app.add_middleware(SizeLimitMiddleware, max_size=7*1024*1024) # 7MB limit to request
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
@@ -623,6 +633,11 @@ async def not_found_exception_handler(request: Request, exc: HTTPException):
     # return 404.html when 404 not found
     return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
 
+@app.exception_handler(FilesSizeTooLargeError)
+async def file_too_large_exception_hander(request: Request, exc: FilesSizeTooLargeError):
+    # when voice file is too large(=expensive) to transcribe
+    return JSONResponse({"transcript" : "파일이 너무 큽니다."})
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     # 500 internal server error, etc
@@ -653,6 +668,8 @@ async def start_chat(request: Request):
     # 대화 기록 초기화 및 첫 메시지 저장 (role: 'assistant'로 변경)
     
     return JSONResponse(content={"response": first_question, "finished": False, "room_id": room_id})
+
+
 
 @app.post("/chat/message")
 async def post_chat_message(request: Request, user_message: ChatMessage):
@@ -694,6 +711,20 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
         
     return JSONResponse(content=ai_message)
 
+
+
+@app.post("/chat/transcribe")
+async def post_chat_message(audio_file: UploadFile):
+    if (not audio_file) or (audio_file.filename == ""):
+        return JSONResponse({"text" : "음성 처리를 실패했습니다."})
+    
+    print(f"전송받은 음성파일 사이즈 : {audio_file.size} byte")
+    
+    # TODO: replace this code using STT API
+    result_script = "테스트 스크립트입니다."
+    return JSONResponse({"transcript" : result_script})
+    
+    
 
 @app.post("/save-diary")
 async def save_diary(
