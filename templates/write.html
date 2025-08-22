@@ -116,6 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
             location.href = "/view";
         } else {
             chatModal.classList.add('hidden');
+
+            fetch('/chat/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: "채팅방 나가기", room_id: roomId })
+            });
         }
     });
 

@@ -688,6 +688,14 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     if not chat_users.sismember(f"chat:participants:{room_id}", user_id):
         print(chat_users.smembers(f"chat:participants:{room_id}"))
         return JSONResponse(status_code=400, content={"error": "채팅에 접근할 권한이 부족합니다."})
+    
+    if user_message.message == "채팅방 나가기":
+        print(f"도중에 끊긴 대화 내역 삭제\n  room_id: {room_id}")
+        if chat_sessions.exists(key) == 1 or chat_users.exists(f"chat:participants:{room_id}"):
+            chat_sessions.delete(key)
+            chat_users.delete(f"chat:participants:{room_id}")
+        return
+        
 
     # 현재 대화 기록에 사용자 메시지 추가
     print(f"redis 사용자 채팅 추가 시작 : {user_message.message}")
