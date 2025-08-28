@@ -22,6 +22,7 @@ import time
 from typing import Optional, List
 from enum import Enum
 import secrets
+import base64
 
 import requests # 추가
 import httpx # 추가
@@ -36,13 +37,19 @@ from .web_middleware import *
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 SOLAR_API_KEY = os.getenv("API_KEY")
+TTS_KEY = os.getenv("TTS_KEY") # Google STT 키 로드
 SOLAR_API_URL = "https://api.upstage.ai/v1/solar/chat/completions"
+GOOGLE_STT_URL = "https://speech.googleapis.com/v1/speech:recognize"
 
 # --- 디버깅 코드 추가 ---
 if SOLAR_API_KEY:
     print(f"✅ API 키가 성공적으로 로드되었습니다. (길이: {len(SOLAR_API_KEY)}, 시작: {SOLAR_API_KEY[:4]}...)" )
 else:
     print("⚠️ API 키를 로드하지 못했습니다. .env 파일을 확인해주세요.")
+if TTS_KEY:
+    print(f"✅ Google STT API 키(TTS_KEY)가 성공적으로 로드되었습니다.")
+else:
+    print("⚠️ Google STT API 키(TTS_KEY)를 로드하지 못했습니다. .env 파일을 확인해주세요.")
 # --- 디버깅 코드 끝 ---
 
 
@@ -722,15 +729,56 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
 
 
 @app.post("/chat/transcribe")
-async def post_chat_message(audio_file: UploadFile):
-    if (not audio_file) or (audio_file.filename == ""):
-        return JSONResponse({"text" : "음성 처리를 실패했습니다."})
+async def transcribe_audio(audio_file: UploadFile):
+    if not audio_file or not audio_file.filename:
+        return JSONResponse({"transcript": "음성 파일을 받지 못했습니다."}, status_code=400)
     
     print(f"전송받은 음성파일 사이즈 : {audio_file.size} byte")
     
-    # TODO: replace this code using STT API
-    result_script = "테스트 스크립트입니다."
-    return JSONResponse({"transcript" : result_script})
+    api_key = TTS_KEY # Google STT에 TTS_KEY 사용
+    if not api_key:
+        print("⚠️ Google STT API 키 (TTS_KEY)를 로드하지 못했습니다. .env 파일을 확인해주세요.")
+        return JSONResponse({"transcript": "음성 인식 서비스 키가 설정되지 않았습니다."}, status_code=500)
+
+    audio_content = await audio_file.read()
+    base64_audio = base64.b64encode(audio_content).decode('utf-8')
+
+    payload = {
+        "config": {
+            "encoding": "WEBM_OPUS",
+            "languageCode": "ko-KR",
+            "enableAutomaticPunctuation": True
+        },
+        "audio": {
+            "content": base64_audio
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{GOOGLE_STT_URL}?key={api_key}",
+                json=payload,
+                timeout=60.0
+            )
+            response.raise_for_status()
+            
+            response_data = response.json()
+            # Google STT can return an empty response if no speech is detected
+            if 'results' in response_data and len(response_data['results']) > 0:
+                transcript = response_data['results'][0]['alternatives'][0]['transcript']
+            else:
+                transcript = "" # No speech detected, return empty string
+            
+            print(f"Google STT 결과: {transcript}")
+            return JSONResponse({"transcript": transcript})
+
+    except httpx.HTTPStatusError as e:
+        print(f"Google STT API 오류: {e.response.text}")
+        return JSONResponse({"transcript": "음성을 텍스트로 변환하는 데 실패했습니다."}, status_code=500)
+    except Exception as e:
+        print(f"음성 처리 중 알 수 없는 오류 발생: {e}")
+        return JSONResponse({"transcript": "음성 처리 중 알 수 없는 오류가 발생했습니다."}, status_code=500)
     
     
 
