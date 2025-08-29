@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        webView.loadUrl("https://1d79f5bbc652.ngrok-free.app");
+        webView.loadUrl("https://39297ebeecd0.ngrok-free.app");
     }
 
     @Override

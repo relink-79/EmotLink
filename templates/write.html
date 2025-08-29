@@ -279,7 +279,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         .then(response => response.json())
                         .then(data => {
                             if (data.transcript) {
-                                chatInput.value = data.transcript;
+                                const transcript = (data.transcript || '').trim();
+                                // 입력창에만 채우고, 사용자가 수정할 수 있게 함 (자동 전송 금지)
+                                // WebView에서 반영이 늦는 경우를 대비해 frame 후 적용 및 포커스 설정
+                                requestAnimationFrame(() => {
+                                    chatInput.disabled = false;
+                                    chatSubmitBtn.disabled = false;
+                                    voiceRecognitionBtn.disabled = false;
+                                    chatInput.value = transcript;
+                                    chatInput.focus();
+                                    try { chatInput.setSelectionRange(transcript.length, transcript.length); } catch (e) {}
+                                });
                             }
                             chatInput.placeholder = originalPlaceholder;
                         })
