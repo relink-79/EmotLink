@@ -38,28 +38,24 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    boolean wantsAudio = false;
-                    for (String res : request.getResources()) {
-                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res)) {
-                            wantsAudio = true;
-                            break;
-                        }
-                    }
-                    if (wantsAudio) {
+                    // We only care about the microphone permission
+                    if (request.getResources()[0].equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            // Store the request and ask for the OS-level permission
                             pendingPermissionRequest = request;
-                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{ Manifest.permission.RECORD_AUDIO }, REQUEST_RECORD_AUDIO);
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO);
                         } else {
+                            // We already have the permission, so grant it to the web page
                             runOnUiThread(() -> request.grant(request.getResources()));
                         }
                     } else {
-                        runOnUiThread(request::deny);
+                         runOnUiThread(() -> request.deny());
                     }
                 }
             }
         });
 
-        webView.loadUrl("https://1d79f5bbc652.ngrok-free.app");
+        webView.loadUrl("https://e8abef56e2db.ngrok-free.app");
     }
 
     @Override
@@ -67,13 +63,15 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_RECORD_AUDIO) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // The user granted the permission. Grant it to the pending web request.
                 if (pendingPermissionRequest != null) {
                     runOnUiThread(() -> pendingPermissionRequest.grant(pendingPermissionRequest.getResources()));
                     pendingPermissionRequest = null;
                 }
             } else {
+                // The user denied the permission. Deny the web request.
                 if (pendingPermissionRequest != null) {
-                    runOnUiThread(pendingPermissionRequest::deny);
+                    runOnUiThread(() -> pendingPermissionRequest.deny());
                     pendingPermissionRequest = null;
                 }
             }
