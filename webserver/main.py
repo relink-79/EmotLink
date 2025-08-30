@@ -420,7 +420,10 @@ def send_message(room_id, user_id, text, role):
         "message": text,
     })
     print("전송할 메시지 :\n" + data)
+    
     chat_sessions.zadd(key, {data: timestamp})
+    chat_sessions.expire(key, 7200) # 2H TTL
+    
     print("send_message 호출 및 chat_sessions.zadd 완료")
     keys = chat_sessions.keys('*')
     for key in keys:
@@ -672,6 +675,7 @@ async def start_chat(request: Request):
     
     send_message(room_id, user_id, first_question, "assistant")
     chat_users.sadd(f"chat:participants:{room_id}", user_id)
+    chat_users.expire(f"chat:participants:{room_id}", 7200) # 2H TTL
     # 대화 기록 초기화 및 첫 메시지 저장 (role: 'assistant'로 변경)
     
     return JSONResponse(content={"response": first_question, "finished": False, "room_id": room_id})
