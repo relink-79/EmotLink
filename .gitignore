@@ -8,3 +8,5 @@ android/capacitor-cordova-android-plugins/cordova.variables.gradle
 android/capacitor-cordova-android-plugins/build.gradle
 capacitor.config.json
 android/capacitor-cordova-android-plugins/build.gradle
+.vscode
+pyrightconfig.json
