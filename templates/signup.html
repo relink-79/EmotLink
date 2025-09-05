@@ -39,53 +39,116 @@
                 </div>
                 {% endif %}
 
-                <form action="/signup" method="post" class="space-y-6">
+                <form action="/signup" method="post" class="space-y-6" id="signup-form">
+                    <!-- email verification token (set to hidden in order to send to server) -->
+                    {% if email_verified %}
+                    <input type="hidden" name="verification_token" value="{{ verification_token }}">
+                    {% endif %}
+                    
                     <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-envelope mr-2"></i>이메일
+                        </label>
+                        <div class="flex space-x-2">
+                            <input type="email" id="email" name="email" required
+                                   class="flex-grow px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                                   placeholder="이메일 주소를 입력하세요"
+                                   {% if email_verified %}value="{{ email }}" readonly{% endif %}>
+                            <button type="button" id="send-verification"
+                                    class="px-4 py-3 font-semibold rounded-lg transition-colors whitespace-nowrap
+                                           {% if email_verified %}bg-green-200 text-green-700 cursor-not-allowed{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %}"
+                                    {% if email_verified %}disabled{% endif %}>
+                                {% if email_verified %}인증완료{% else %}인증메일 발송{% endif %}
+                            </button>
+                        </div>
+                        {% if email_verified %}
+                        <p class="text-green-600 text-sm mt-2">
+                            <i class="fas fa-check-circle mr-1"></i>이메일 인증이 완료되었습니다.
+                        </p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="{% if not email_verified %}opacity-50 pointer-events-none{% endif %}">
                         <label for="id" class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-user mr-2"></i>아이디
                         </label>
-                        <input type="text" id="id" name="id" required
+                        <input type="text" id="id" name="id" {% if email_verified %}required{% else %}disabled{% endif %}
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                                placeholder="아이디를 입력하세요">
+                        <div id="id-error" class="text-red-600 text-sm mt-1 hidden">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            <span id="id-error-text"></span>
+                        </div>
+                        <div id="id-success" class="text-green-600 text-sm mt-1 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            사용 가능한 아이디입니다.
+                        </div>
                     </div>
 
-                    <div>
+                    <div class="{% if not email_verified %}opacity-50 pointer-events-none{% endif %}">
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-id-card mr-2"></i>이름
                         </label>
-                        <input type="text" id="name" name="name" required
+                        <input type="text" id="name" name="name" {% if email_verified %}required{% else %}disabled{% endif %}
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                                placeholder="실명을 입력하세요">
                     </div>
 
-                    <div>
+                    <div class="{% if not email_verified %}opacity-50 pointer-events-none{% endif %}">
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-lock mr-2"></i>비밀번호
                         </label>
-                        <input type="password" id="password" name="password" required
+                        <input type="password" id="password" name="password" {% if email_verified %}required{% else %}disabled{% endif %}
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                               placeholder="비밀번호를 입력하세요">
+                               placeholder="비밀번호를 입력하세요 (8자 이상)">
+                        <div id="password-error" class="text-red-600 text-sm mt-1 hidden">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            <span id="password-error-text"></span>
+                        </div>
+                        <div id="password-success" class="text-green-600 text-sm mt-1 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            사용 가능한 비밀번호입니다.
+                        </div>
                     </div>
 
-                    <div>
+                    <div class="{% if not email_verified %}opacity-50 pointer-events-none{% endif %}">
                         <label for="password_confirm" class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-lock mr-2"></i>비밀번호 확인
                         </label>
-                        <input type="password" id="password_confirm" name="password_confirm" required
+                        <input type="password" id="password_confirm" name="password_confirm" {% if email_verified %}required{% else %}disabled{% endif %}
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                                placeholder="비밀번호를 다시 입력하세요">
+                        <div id="password-confirm-error" class="text-red-600 text-sm mt-1 hidden">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            비밀번호가 일치하지 않습니다.
+                        </div>
+                        <div id="password-confirm-success" class="text-green-600 text-sm mt-1 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            비밀번호가 일치합니다.
+                        </div>
                     </div>
 
-                    <div>
+                    <div class="{% if not email_verified %}opacity-50 pointer-events-none{% endif %}">
                         <label for="birthday" class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-calendar mr-2"></i>생년월일
                         </label>
-                        <input type="date" id="birthday" name="birthday" required
+                        <input type="date" id="birthday" name="birthday" {% if email_verified %}required{% else %}disabled{% endif %}
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
                     </div>
 
-                    <button type="submit"
-                            class="w-full flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                    {% if not email_verified %}
+                    <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            먼저 이메일 인증을 완료해 주세요.
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" 
+                            {% if not email_verified %}disabled{% endif %}
+                            class="w-full flex items-center justify-center px-6 py-3 font-semibold rounded-lg transition-colors
+                                   {% if email_verified %}bg-indigo-600 text-white hover:bg-indigo-700{% else %}bg-gray-300 text-gray-500 cursor-not-allowed{% endif %}">
                         <i class="fas fa-user-plus mr-2"></i>
                         회원가입
                     </button>
@@ -103,5 +166,461 @@
             </div>
         </div>
     </div>
+
+    <script>
+        let verificationCheckInterval = null;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const sendVerificationBtn = document.getElementById('send-verification');
+            const emailInput = document.getElementById('email');
+            const signupForm = document.getElementById('signup-form');
+            const idInput = document.getElementById('id');
+            const passwordInput = document.getElementById('password');
+            const passwordConfirmInput = document.getElementById('password_confirm');
+            
+            checkLocalStorageVerification(); // check verification status from local storage
+            
+            // form validation
+            let validationState = {
+                id: false,
+                password: false,
+                passwordConfirm: false
+            };
+            
+            // real-time validation will be enabled after email verification
+            
+            // form submit validation
+            if (signupForm) {
+                signupForm.addEventListener('submit', function(e) {
+                    if (!validateAllFields()) {
+                        e.preventDefault();
+                        showMessage('입력한 정보를 다시 확인해 주세요.', 'error');
+                        return false;
+                    }
+                });
+            }
+            
+            // when verified (from new tab)
+            window.addEventListener('message', function(event) {
+                if (event.origin !== window.location.origin) return;
+                
+                if (event.data.type === 'EMAIL_VERIFIED') {
+                    handleEmailVerified(event.data.email, event.data.verification_token);
+                }
+            });
+            
+            // send verification btn
+            if (sendVerificationBtn && !sendVerificationBtn.disabled) {
+                sendVerificationBtn.addEventListener('click', async function() {
+                    const email = emailInput.value.trim();
+                    
+                    if (!email) {
+                        alert('이메일 주소를 입력해 주세요.');
+                        return;
+                    }
+                    
+                    if (!isValidEmail(email)) {
+                        alert('올바른 이메일 주소를 입력해 주세요.');
+                        return;
+                    }
+                    
+                    // deactivate button
+                    const originalText = sendVerificationBtn.textContent;
+                    sendVerificationBtn.disabled = true;
+                    sendVerificationBtn.textContent = '발송 중...';
+                    sendVerificationBtn.classList.add('cursor-not-allowed', 'opacity-50');
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('email', email);
+                        
+                        const response = await fetch('/send-verification', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showMessage(result.message, 'success');
+                            sendVerificationBtn.textContent = '재발송';
+                            sendVerificationBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                            sendVerificationBtn.classList.add('bg-blue-200', 'text-blue-700');
+                            
+                            // start verification check (interval)
+                            startVerificationCheck(email);
+                        } else {
+                            showMessage(result.message, 'error');
+                            sendVerificationBtn.textContent = originalText;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showMessage('네트워크 오류가 발생했습니다. 다시 시도해 주세요.', 'error');
+                        sendVerificationBtn.textContent = originalText;
+                    } finally {
+                        sendVerificationBtn.disabled = false;
+                        sendVerificationBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+                    }
+                });
+            }
+            
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+            
+            // validation helper functions
+            function showValidationMessage(field, type, message) {
+                const errorElement = document.getElementById(`${field}-error`);
+                const successElement = document.getElementById(`${field}-success`);
+                const errorTextElement = document.getElementById(`${field}-error-text`);
+                
+                if (type === 'error') {
+                    if (errorTextElement) errorTextElement.textContent = message;
+                    if (errorElement) errorElement.classList.remove('hidden');
+                    if (successElement) successElement.classList.add('hidden');
+                } else {
+                    if (errorElement) errorElement.classList.add('hidden');
+                    if (successElement) successElement.classList.remove('hidden');
+                }
+            }
+            
+            function hideValidationMessage(field) {
+                const errorElement = document.getElementById(`${field}-error`);
+                const successElement = document.getElementById(`${field}-success`);
+                
+                if (errorElement) errorElement.classList.add('hidden');
+                if (successElement) successElement.classList.add('hidden');
+            }
+            
+            // check ID duplication
+            async function checkIdDuplication(id) {
+                try {
+                    const formData = new FormData();
+                    formData.append('id', id);
+                    
+                    const response = await fetch('/api/check-id-duplicate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.available) {
+                        showValidationMessage('id', 'success');
+                        validationState.id = true;
+                    } else {
+                        showValidationMessage('id', 'error', result.message || '이미 사용 중인 아이디입니다.');
+                        validationState.id = false;
+                    }
+                } catch (error) {
+                    console.error('ID 중복 확인 오류:', error);
+                    showValidationMessage('id', 'error', '아이디 중복 확인 중 오류가 발생했습니다.');
+                    validationState.id = false;
+                }
+                updateSubmitButton();
+            }
+            
+            // validate password
+            function validatePassword(password) {
+                if (password.length === 0) {
+                    hideValidationMessage('password');
+                    validationState.password = false;
+                } else if (password.length < 8) {
+                    showValidationMessage('password', 'error', '비밀번호는 8자 이상이어야 합니다.');
+                    validationState.password = false;
+                } else {
+                    showValidationMessage('password', 'success');
+                    validationState.password = true;
+                }
+                updateSubmitButton();
+            }
+            
+            // validate password confirmation
+            function validatePasswordConfirm(passwordConfirm, password) {
+                if (passwordConfirm.length === 0) {
+                    hideValidationMessage('password-confirm');
+                    validationState.passwordConfirm = false;
+                } else if (passwordConfirm !== password) {
+                    showValidationMessage('password-confirm', 'error');
+                    validationState.passwordConfirm = false;
+                } else {
+                    showValidationMessage('password-confirm', 'success');
+                    validationState.passwordConfirm = true;
+                }
+                updateSubmitButton();
+            }
+            
+            // validate all fields
+            function validateAllFields() {
+                const idInput = document.getElementById('id');
+                const passwordInput = document.getElementById('password');
+                const passwordConfirmInput = document.getElementById('password_confirm');
+                const nameInput = document.getElementById('name');
+                const birthdayInput = document.getElementById('birthday');
+                
+                // check required fields
+                if (!nameInput.value.trim()) {
+                    showMessage('이름을 입력해 주세요.', 'error');
+                    nameInput.focus();
+                    return false;
+                }
+                
+                if (!birthdayInput.value) {
+                    showMessage('생년월일을 입력해 주세요.', 'error');
+                    birthdayInput.focus();
+                    return false;
+                }
+                
+                // check validation states
+                return validationState.id && validationState.password && validationState.passwordConfirm;
+            }
+            
+            // update submit button state
+            function updateSubmitButton() {
+                const submitBtn = document.querySelector('button[type="submit"]');
+                if (!submitBtn) return;
+                
+                const allValid = validationState.id && validationState.password && validationState.passwordConfirm;
+                
+                if (allValid) {
+                    submitBtn.disabled = false;
+                    submitBtn.className = 'w-full flex items-center justify-center px-6 py-3 font-semibold rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700';
+                } else {
+                    submitBtn.disabled = true;
+                    submitBtn.className = 'w-full flex items-center justify-center px-6 py-3 font-semibold rounded-lg transition-colors bg-gray-300 text-gray-500 cursor-not-allowed';
+                }
+            }
+            
+            // enable real-time validation after email verification
+            function enableRealTimeValidation() {
+                const idInput = document.getElementById('id');
+                const passwordInput = document.getElementById('password');
+                const passwordConfirmInput = document.getElementById('password_confirm');
+                
+                // real-time validation for ID
+                let idCheckTimeout;
+                if (idInput) {
+                    idInput.addEventListener('input', function() {
+                        clearTimeout(idCheckTimeout);
+                        const id = this.value.trim();
+                        
+                        if (id.length === 0) {
+                            hideValidationMessage('id');
+                            validationState.id = false;
+                            updateSubmitButton();
+                            return;
+                        }
+                        
+                        if (id.length < 4) {
+                            showValidationMessage('id', 'error', '아이디는 4자 이상이어야 합니다.');
+                            validationState.id = false;
+                            updateSubmitButton();
+                            return;
+                        }
+                        
+                        // check ID duplication after 500ms delay
+                        idCheckTimeout = setTimeout(async () => {
+                            await checkIdDuplication(id);
+                        }, 500);
+                    });
+                }
+                
+                // real-time validation for password
+                if (passwordInput) {
+                    passwordInput.addEventListener('input', function() {
+                        const password = this.value;
+                        if (password.length > 0) { // when user actually input password
+                            validatePassword(password);
+                        }
+                        if (passwordConfirmInput.value) {
+                            validatePasswordConfirm(passwordConfirmInput.value, password);
+                        }
+                    });
+                }
+                
+                // real-time validation for password confirm
+                if (passwordConfirmInput) {
+                    passwordConfirmInput.addEventListener('input', function() {
+                        const passwordConfirm = this.value;
+                        const password = passwordInput.value;
+                        if (passwordConfirm.length > 0) { // when user actually input password
+                            validatePasswordConfirm(passwordConfirm, password);
+                        }
+                    });
+                }
+            }
+            
+            function showMessage(message, type) {
+                // remove existing message
+                const existingMessage = document.querySelector('.dynamic-message');
+                if (existingMessage) {
+                    existingMessage.remove();
+                }
+                
+                // new message
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `dynamic-message mb-4 px-4 py-3 rounded-lg ${
+                    type === 'success' 
+                        ? 'bg-green-50 border border-green-200 text-green-700' 
+                        : 'bg-red-50 border border-red-200 text-red-700'
+                }`;
+                
+                messageDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>
+                        ${message}
+                    </div>
+                `;
+                
+                // insert this on the top of the form
+                const form = document.getElementById('signup-form');
+                form.parentNode.insertBefore(messageDiv, form);
+                
+                // evaporates after 5 sec
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.remove();
+                    }
+                }, 5000);
+            }
+            
+            // check verification status from local storage
+            function checkLocalStorageVerification() {
+                const verificationStatus = localStorage.getItem('email_verification_status');
+                if (verificationStatus) {
+                    try {
+                        const data = JSON.parse(verificationStatus);
+                        // 30 minutes time limit
+                        if (data.verified && (new Date().getTime() - data.timestamp) < 30 * 60 * 1000) {
+                            handleEmailVerified(data.email, data.verification_token);
+                        } else {
+                            // 시간이 지났으면 localStorage 삭제
+                            localStorage.removeItem('email_verification_status');
+                        }
+                    } catch (error) {
+                        console.log('로컬 스토리지 인증 상태 확인 실패:', error);
+                        localStorage.removeItem('email_verification_status');
+                    }
+                } else {
+                    // check if email is already verified on page load
+                    const emailVerifiedInput = document.querySelector('input[name="verification_token"]');
+                    if (emailVerifiedInput && emailVerifiedInput.value) {
+                        // email is already verified, enable real-time validation
+                        setTimeout(() => {
+                            enableRealTimeValidation();
+                        }, 100);
+                    }
+                }
+            }
+            
+            // check verification status from server (interval)
+            function startVerificationCheck(email) {
+                // reset interval
+                if (verificationCheckInterval) {
+                    clearInterval(verificationCheckInterval);
+                }
+                
+                verificationCheckInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/check-verification?email=${encodeURIComponent(email)}`);
+                        const result = await response.json();
+                        
+                        if (result.verified) {
+                            handleEmailVerified(result.email, result.verification_token);
+                            clearInterval(verificationCheckInterval);
+                        }
+                    } catch (error) {
+                        console.log('인증 상태 확인 실패:', error);
+                    }
+                }, 3000); // 3 sec
+                
+                // auto reset interval (10 min)
+                setTimeout(() => {
+                    if (verificationCheckInterval) {
+                        clearInterval(verificationCheckInterval);
+                        verificationCheckInterval = null;
+                    }
+                }, 10 * 60 * 1000);
+            }
+            
+            // after verified
+            function handleEmailVerified(email, verificationToken) {
+                const emailInput = document.getElementById('email');
+                const sendVerificationBtn = document.getElementById('send-verification');
+                const signupForm = document.getElementById('signup-form');
+                
+                // save email and verification status to localStorage
+                const verificationData = {
+                    email: email,
+                    verified: true,
+                    verification_token: verificationToken,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('email_verification_status', JSON.stringify(verificationData));
+                
+                // change email field
+                emailInput.value = email;
+                emailInput.readOnly = true;
+                
+                // change send verification btn
+                sendVerificationBtn.textContent = '인증완료';
+                sendVerificationBtn.disabled = true;
+                sendVerificationBtn.className = 'px-4 py-3 font-semibold rounded-lg transition-colors whitespace-nowrap bg-green-200 text-green-700 cursor-not-allowed';
+                
+                // change/update hidden token (invisible but has to be sended to server)
+                let tokenInput = document.querySelector('input[name="verification_token"]');
+                if (!tokenInput) {
+                    tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'verification_token';
+                    signupForm.appendChild(tokenInput);
+                }
+                tokenInput.value = verificationToken;
+                
+                // activate fields
+                const disabledFields = signupForm.querySelectorAll('input[disabled], button[disabled]');
+                disabledFields.forEach(field => {
+                    if (field !== sendVerificationBtn) {
+                        field.disabled = false;
+                        field.required = true;
+                    }
+                });
+                
+                // remove opacity from form container
+                const formFields = document.querySelectorAll('.opacity-50.pointer-events-none');
+                formFields.forEach(field => {
+                    field.classList.remove('opacity-50', 'pointer-events-none');
+                });
+                
+                // hide "먼저 이메일 인증을 완료해 주세요" message
+                const emailVerificationNotice = signupForm.querySelector('.bg-blue-50');
+                if (emailVerificationNotice) {
+                    emailVerificationNotice.style.display = 'none';
+                }
+                
+                // activate submit btn
+                const submitBtn = signupForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.className = 'w-full flex items-center justify-center px-6 py-3 font-semibold rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700';
+                }
+                
+                showMessage('이메일 인증이 완료되었습니다! 이제 회원가입을 진행해 주세요.', 'success');
+                
+                // stop interval
+                if (verificationCheckInterval) {
+                    clearInterval(verificationCheckInterval);
+                    verificationCheckInterval = null;
+                }
+                
+                // enable real-time validation
+                setTimeout(() => {
+
+                    enableRealTimeValidation();
+                }, 100);
+            }
+        });
+    </script>
 </body>
 </html> 

@@ -5,4 +5,7 @@ bcrypt
 pyjwt
 python-dotenv
 requests
-httpx 
+httpx
+fastapi-mail
+python-jose[cryptography]
+redis 

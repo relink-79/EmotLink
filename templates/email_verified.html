@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이메일 인증 완료 - EmotLink</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+
+            <!-- Success Message -->
+            <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+                <div class="text-center">
+                    <div class="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-check text-white text-3xl"></i>
+                    </div>
+                    
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        이메일 인증이 완료되었습니다!
+                    </h3>
+                    
+                    <div class="bg-gray-100 border border-gray-200 text-indigo-700 px-4 py-3 rounded-lg mb-6">
+                        <p class="text-sm">
+                            <strong>{{ email }}</strong> 주소로 인증이 완료되었습니다.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
+                        <div class="flex items-center justify-center">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <p class="text-sm">
+                                기존 회원가입 창이 자동으로 업데이트됩니다.<br>
+                                이 창은 잠시 후 자동으로 닫힙니다.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button onclick="closeWindow()" 
+                                class="w-full bg-indigo-600 text-white px-6 py-3 font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-times mr-2"></i>
+                            창 닫기
+                        </button>
+                        
+                        <a href="/signup" 
+                           class="w-full inline-block bg-gray-200 text-gray-700 px-6 py-3 font-semibold rounded-lg hover:bg-gray-300 transition-colors text-center">
+                            <i class="fas fa-user-plus mr-2"></i>
+                            회원가입 페이지로 이동
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Auto-close countdown -->
+            <div class="text-center">
+                <p class="text-sm text-gray-500">
+                    <span id="countdown">10</span>초 후 자동으로 창이 닫힙니다.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // send verification success event to parent window
+        function notifyParentWindow() {
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                        type: 'EMAIL_VERIFIED',
+                        email: '{{ email }}',
+                        verification_token: '{{ verification_token }}'
+                    }, window.location.origin);
+                }
+                
+                // save local storage (for other tabs to be albe to check verification status)
+                localStorage.setItem('email_verification_status', JSON.stringify({
+                    verified: true,
+                    email: '{{ email }}',
+                    verification_token: '{{ verification_token }}',
+                    timestamp: new Date().getTime()
+                }));
+            } catch (error) {
+                console.log('기존 부모 창에 메시지 전송 실패:', error);
+            }
+        }
+        
+        function closeWindow() {
+            notifyParentWindow();
+            if (window.opener && !window.opener.closed) {
+                window.close();
+            } else {
+                window.location.href = '/signup';
+            }
+        }
+        
+        // send success event to parent window after dom loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            notifyParentWindow();
+            
+            // 10 sec countdown
+            let countdown = 10;
+            const countdownElement = document.getElementById('countdown');
+            
+            const timer = setInterval(() => {
+                countdown--;
+                countdownElement.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    // automatically close window
+                    clearInterval(timer);
+                    closeWindow();
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

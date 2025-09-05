@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 import logging
 
 # DB관련
@@ -12,6 +12,10 @@ import bcrypt
 from jose import jwt
 import redis
 import uuid_utils
+
+# 이메일 인증 관련
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from jose import JWTError
 
 import pprint
 import json
@@ -41,6 +45,13 @@ TTS_KEY = os.getenv("TTS_KEY") # Google STT 키 로드
 SOLAR_API_URL = "https://api.upstage.ai/v1/solar/chat/completions"
 GOOGLE_STT_URL = "https://speech.googleapis.com/v1/speech:recognize"
 
+# load smtp info
+MAIL_USERNAME = os.getenv("MAIL_ADDRESS", "USERNAME_NOT_FOUND")
+MAIL_PASSWORD = SecretStr(os.getenv("MAIL_PASSWORD", "PASSWORD_NOT_FOUND"))
+MAIL_FROM = os.getenv("MAIL_FROM", "FROM_NOT_FOUND")
+MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+
 # --- 디버깅 코드 추가 ---
 if SOLAR_API_KEY:
     print(f"✅ API 키가 성공적으로 로드되었습니다. (길이: {len(SOLAR_API_KEY)}, 시작: {SOLAR_API_KEY[:4]}...)" )
@@ -65,6 +76,21 @@ app.add_middleware(SizeLimitMiddleware, max_size=7*1024*1024) # 7MB limit to req
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
+
+# Setup smtp
+mail_config = ConnectionConfig(
+    MAIL_USERNAME=MAIL_USERNAME,
+    MAIL_PASSWORD=MAIL_PASSWORD,
+    MAIL_FROM=MAIL_FROM,
+    MAIL_FROM_NAME="EmotLink",
+    MAIL_PORT=MAIL_PORT,
+    MAIL_SERVER=MAIL_SERVER,
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+fastmail = FastMail(mail_config)
 
 # User roles enum
 class UserRole(str, Enum):
@@ -96,6 +122,17 @@ chat:{room_id} => json
 {
     "relink",
     "goranipie"
+}
+'''
+
+# 이메일 인증 상태 저장소
+email_verification_cache = redis.Redis(host='localhost', port=21101, db=2)
+''' redis string
+email_verified:{email} => json
+{
+    "token": verification_token,
+    "email": email,
+    "verified_at": timestamp
 }
 '''
 
@@ -141,9 +178,117 @@ def create_login_token(data, expire = 120):
     user.update({"expire" : int((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=expire)).timestamp())})
     return jwt.encode(user, SECRET_KEY, "HS256")
 
+def create_email_verification_token(email: str, user_data: dict, expire_minutes: int = 30):
+    expire_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=expire_minutes)
+    temp_user = {
+        "email": email,
+        "user_data": user_data,
+        "exp": expire_time,
+        "type": "email_verification"
+    }
+    return jwt.encode(temp_user, SECRET_KEY, "HS256")
+
+def verify_email_verification_token(token: str) -> dict | None:
+    try:
+        tmp_user = jwt.decode(token, SECRET_KEY, "HS256")
+        if tmp_user.get("type") != "email_verification":
+            return None
+        else:
+            return tmp_user
+    except JWTError:
+        return None
+
+async def send_verification_email(email: str, verification_token: str):
+    verification_url = f"http://localhost:8000/verify-email?token={verification_token}"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>EmotLink 이메일 인증</title>
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
+            <tr>
+                <td style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header with Logo -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                            <td align="center" style="padding-bottom: 30px;">
+                                <!-- Logo Circle -->
+                                <table align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td align="center" style="width: 60px; height: 60px; background-color: #4f46e5; border-radius: 50%; text-align: center; vertical-align: middle; color: white; font-size: 24px; line-height: 60px; margin-bottom: 15px;">
+                                            🔗
+                                        </td>
+                                    </tr>
+                                </table>
+                                <h1 style="color: #333; margin: 15px 0 10px 0; font-size: 24px; font-weight: bold;">EmotLink 이메일 인증</h1>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <!-- Content -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                            <td style="color: #666; line-height: 1.6; margin-bottom: 30px; padding-bottom: 30px;">
+                                <p style="margin: 0 0 15px 0;">안녕하세요!</p>
+                                <p style="margin: 0 0 15px 0;">EmotLink 회원가입을 위해 이메일 인증이 필요합니다.</p>
+                                <p style="margin: 0;">아래 버튼을 클릭하여 이메일 인증을 완료해 주세요.</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <!-- Button -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                            <td align="center" style="padding: 30px 0;">
+                                <table border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td align="center" style="background-color: #4f46e5; border-radius: 5px;">
+                                            <a href="{verification_url}" style="display: inline-block; padding: 15px 30px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff !important; text-decoration: none; border-radius: 5px;">이메일 인증하기</a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <!-- Footer -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                            <td style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; text-align: center;">
+                                <p style="color: #999; font-size: 12px; margin: 0 0 10px 0;">이 링크는 30분 후 만료됩니다.</p>
+                                <p style="color: #999; font-size: 12px; margin: 0;">만약 본인이 회원가입을 신청하지 않으셨다면, 이 메일을 무시해 주세요.</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+    
+    message = MessageSchema(
+        subject="EmotLink 이메일 인증",
+        recipients=[email],
+        body=html_body,
+        subtype="html"
+    )
+    
+    await fastmail.send_message(message)
+
 def load_diary_entries(request, max_limit = 0) -> list:
     """load user diaries"""
-    user_id = get_current_user(request)["id"]
+    current_user = get_current_user(request)
+    if current_user is None:
+        return []
+    user_id = current_user["id"]
     user_diaries: list = list(diaries.find({"author_id" : user_id}, limit = max_limit))
     if user_diaries is None:
         user_diaries = []
@@ -452,18 +597,28 @@ async def login_page(request: Request):
 async def login(request: Request, id: str = Form(...), password: str = Form(...), remember: Optional[bool] = Form(None), dev_mode: Optional[bool] = Form(None)):
     """사용자 로그인을 처리합니다."""
     print("로그인 시도 감지")
-    current_user = users.find_one({"id" : id}) # 유저 없을시 None반환
+    
+    # 아이디 또는 이메일로 사용자 찾기
+    current_user = users.find_one({"$or": [{"id": id}, {"email": id}]})
 
-    # 일반 로그인 (test/test)
+    # 일반 로그인
     if (id != None) and \
     (password != None) and \
     (current_user != None) and \
     (bcrypt.checkpw(password.encode("utf-8"), current_user["password"].encode("utf-8"))):
         
+        # check email verified
+        if not current_user.get("email_verified", False):
+            return templates.TemplateResponse("login.html", {
+                "request": request, 
+                "error": "이메일 인증이 완료되지 않았습니다. 이메일을 확인해 주세요."
+            })
+        
         # 토큰에 포함할 사용자 정보 생성
         user_info_for_token = {
             "id": current_user.get("id"),
             "name": current_user.get("name"),
+            "email": current_user.get("email"),
             "role": "customer"  # 역할은 직접 지정
         }
         
@@ -496,52 +651,168 @@ async def signup_page(request: Request):
     """회원가입 페이지를 표시합니다."""
     return templates.TemplateResponse("signup.html", {"request": request})
 
+@app.post("/send-verification")
+async def send_verification(request: Request, email: str = Form(...)):
+    try:
+        # check email dup
+        if users.find_one({"email": email}):
+            return JSONResponse(
+                status_code=400, 
+                content={"success": False, "message": "이미 가입된 이메일입니다."}
+            )
+        
+        # temporal user token (no user data, similar to provisional registration)
+        verification_token = create_email_verification_token(email, {})
+        
+        await send_verification_email(email, verification_token)
+        
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "message": "인증 메일이 발송되었습니다. 이메일을 확인해 주세요."}
+        )
+        
+    except Exception as e:
+        print(f"이메일 발송 오류: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "이메일 발송 중 오류가 발생했습니다."}
+        )
+
 @app.post("/signup")
 async def signup(request: Request, 
+                email: str = Form(...),
                 id: str = Form(...), 
                 name: str = Form(...), 
                 password: str = Form(...), 
                 password_confirm: str = Form(...), 
-                birthday: str = Form(...)):
-    """회원가입 정보를 받아 DB에 저장합니다."""
+                birthday: str = Form(...),
+                verification_token: str = Form(...)):
+    """이메일 인증 후 회원가입 완료"""
     
-    # 1. 유효성 검사
+    token_data = verify_email_verification_token(verification_token)
+    if not token_data or token_data.get("email") != email:
+        return templates.TemplateResponse("signup.html", {
+            "request": request, 
+            "error": "이메일 인증이 유효하지 않습니다. 다시 인증을 진행해 주세요."
+        })
+    
+    # 2. 유효성 검사
     if password != password_confirm:
         return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
     if len(password) < 8:
         return templates.TemplateResponse("signup.html", {"request": request, "error": "비밀번호는 8자 이상이어야 합니다."})
     
-    # 2. 아이디 중복 확인
+    # 3. 중복 확인
     if users.find_one({"id": id}):
         return templates.TemplateResponse("signup.html", {"request": request, "error": "이미 사용 중인 아이디입니다."})
+    if users.find_one({"email": email}):
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "이미 가입된 이메일입니다."})
 
-    # 3. 스키마에 맞게 데이터 가공
+    # 4. 스키마에 맞게 데이터 가공
     try:
         new_user = {
             "id": id,
             "name": name,
+            "email": email,
             "password": bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
             "birthday": datetime.datetime.strptime(birthday, "%Y-%m-%d"),
             "account_type": 0,
+            "email_verified": True,
+            "created_at": datetime.datetime.now(datetime.timezone.utc)
         }
     except Exception as e:
-        # 데이터 가공 중 오류 발생 시, 사용자에게 에러를 알림 (터미널에는 로그를 남기는 것이 좋음)
         print(f"Data processing error during signup: {e}")
         return templates.TemplateResponse("signup.html", {"request": request, "error": "입력된 정보가 올바르지 않습니다."})
 
-    # 4. 데이터베이스에 저장
+    # 5. 데이터베이스에 저장
     try:
         users.insert_one(new_user)
     except Exception as e:
-        # DB 저장 중 심각한 오류 발생 시, 사용자에게 에러를 알림 (터미널에는 로그를 남기는 것이 좋음)
         print(f"DB insertion error during signup: {e}")
         return templates.TemplateResponse("signup.html", {"request": request, "error": "회원가입 중 서버 오류가 발생했습니다."})
 
-    # 5. 성공 응답
+    # 6. 성공 응답
     return templates.TemplateResponse("signup.html", {
         "request": request, 
         "success": "회원가입이 완료되었습니다! 로그인 페이지로 이동하여 로그인해 주세요."
     })
+
+@app.get("/verify-email")
+async def verify_email(request: Request, token: str):
+    token_data = verify_email_verification_token(token)
+    if not token_data:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "인증 링크가 유효하지 않거나 만료되었습니다. 다시 시도해 주세요."
+        })
+    
+    email = token_data.get("email")
+    
+    # if already exists
+    if users.find_one({"email": email}):
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "이미 가입된 이메일입니다."
+        })
+    
+    # save verification status in Redis
+    verification_key = f"email_verified:{email}"
+    verification_data = {
+        "token": token,
+        "email": email,
+        "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+    email_verification_cache.setex(verification_key, 1800, json.dumps(verification_data))  # 30분 TTL
+    
+    # show success page
+    return templates.TemplateResponse("email_verified.html", {
+        "request": request,
+        "email_verified": True,
+        "email": email,
+        "verification_token": token,
+        "success": "이메일 인증이 완료되었습니다!"
+    })
+
+@app.get("/api/check-verification")
+async def check_verification_status(request: Request, email: str):
+    try:
+        # check email duplication
+        if users.find_one({"email": email}):
+            return JSONResponse(content={"verified": False, "message": "이미 가입된 이메일입니다."})
+        
+        # check verification status from redis
+        verification_key = f"email_verified:{email}"
+        if email_verification_cache.exists(verification_key):
+            verification_data = json.loads(email_verification_cache.get(verification_key))
+            return JSONResponse(content={
+                "verified": True, 
+                "email": email,
+                "verification_token": verification_data.get("token")
+            })
+        
+        return JSONResponse(content={"verified": False})
+        
+    except Exception as e:
+        print(f"인증 상태 확인 오류: {e}")
+        return JSONResponse(content={"verified": False}, status_code=500)
+
+@app.post("/api/check-id-duplicate")
+async def check_id_duplicate(request: Request, id: str = Form(...)):
+    """아이디 중복 확인 API"""
+    try:
+        # check ID duplication
+        if users.find_one({"id": id}):
+            return JSONResponse(content={"available": False, "message": "이미 사용 중인 아이디입니다."})
+        
+        # check if ID is valid (basic validation)
+        if len(id.strip()) < 4:
+            return JSONResponse(content={"available": False, "message": "아이디는 4자 이상이어야 합니다."})
+        
+        return JSONResponse(content={"available": True, "message": "사용 가능한 아이디입니다."})
+        
+    except Exception as e:
+        print(f"아이디 중복 확인 오류: {e}")
+        return JSONResponse(content={"available": False, "message": "아이디 중복 확인 중 오류가 발생했습니다."}, status_code=500)
 
 # ==================== 페이지 라우트들 ====================
 
@@ -674,7 +945,8 @@ async def start_chat(request: Request):
     first_question = "안녕하세요! 오늘 하루는 어떠셨나요?"
     
     send_message(room_id, user_id, first_question, "assistant")
-    chat_users.sadd(f"chat:participants:{room_id}", user_id)
+    if user_id:
+        chat_users.sadd(f"chat:participants:{room_id}", user_id)
     chat_users.expire(f"chat:participants:{room_id}", 7200) # 2H TTL
     # 대화 기록 초기화 및 첫 메시지 저장 (role: 'assistant'로 변경)
     
@@ -696,7 +968,7 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     if chat_sessions.exists(key) == 0:
         return JSONResponse(status_code=400, content={"error": "채팅 세션이 시작되지 않았습니다."})
     
-    if not chat_users.sismember(f"chat:participants:{room_id}", user_id):
+    if user_id and not chat_users.sismember(f"chat:participants:{room_id}", user_id):
         print(chat_users.smembers(f"chat:participants:{room_id}"))
         return JSONResponse(status_code=400, content={"error": "채팅에 접근할 권한이 부족합니다."})
     
@@ -721,7 +993,7 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     send_message(room_id, user_id, ai_message, "assistant")
 
     # 대화 종료 시 일기 자동 생성 및 세션 정리
-    if ai_message.get("finished"):
+    if ai_message.get("finished") and user_id:
         # 백그라운드에서 일기 생성 및 저장 실행 (응답이 사용자에게 즉시 가도록)
         await generate_and_save_diary(user_id, current_conversation)
         if chat_sessions.exists(key) == 1 or chat_users.exists(f"chat:participants:{room_id}"):
@@ -795,9 +1067,10 @@ async def save_diary(
     emotion: str = Form(default="😊")
 ):
     """일기 저장 API"""
-    today: datetime  = datetime.datetime.now(datetime.timezone.utc)
-    current_user: dict | None = get_current_user(request)
-    new_entry = save_diary_entry(title, content, emotion, current_user.get("id"), today)
+    today = datetime.datetime.now(datetime.timezone.utc)
+    current_user = get_current_user(request)
+    if current_user:
+        save_diary_entry(title, content, emotion, current_user.get("id"), today)
     
     return RedirectResponse(url="/view", status_code=303)
 
