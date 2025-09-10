@@ -1,6 +1,6 @@
 # EmotLink
 
-FastAPI와 Capacitor를 사용하는 웹/앱 프로젝트입니다.
+FastAPI를 사용하는 웹/앱 프로젝트입니다.
 
 ## 설치 (최초 1회)
 
