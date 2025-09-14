@@ -1,5 +1,6 @@
 from .auth import *
 from . import login, signup, email_verification
+from fastapi import APIRouter
 
 auth_router = APIRouter()
 auth_router.include_router(login.router)
