@@ -70,9 +70,10 @@ async def signup(request: Request,
         return templates.TemplateResponse("signup.html", {"request": request, "error": "회원가입 중 서버 오류가 발생했습니다."})
 
     # 6. 성공 응답
-    return templates.TemplateResponse("signup.html", {
+    return templates.TemplateResponse("login.html", {
         "request": request, 
-        "success": "회원가입이 완료되었습니다! 로그인 페이지로 이동하여 로그인해 주세요."
+        "success": "회원가입이 완료되었습니다!",
+        "email": email
     })
     
 
