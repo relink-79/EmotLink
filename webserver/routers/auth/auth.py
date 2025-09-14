@@ -1,4 +1,4 @@
-from fastapi import Request, APIRouter
+from fastapi import Request
 from typing import Optional
 from jose import jwt
 from ...config import *
@@ -15,7 +15,7 @@ def get_current_user(request: Request) -> Optional[dict]:
         if token:
             return jwt.decode(token, SECRET_KEY, "HS256")
     except Exception:
-        pass
+        return None
     return None
 
 def get_current_user_role(request: Request) -> Optional[str]:
