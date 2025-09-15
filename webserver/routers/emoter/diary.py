@@ -20,6 +20,15 @@ def load_diary_entries(request, max_limit = 0) -> list:
         user_diaries = []
     return user_diaries
     
+def load_diary_entries_for_user(user_id: str, max_limit = 0) -> list:
+    """load diaries for specific user"""
+    if not user_id:
+        return []
+    user_diaries: list = list(diaries.find({"author_id" : user_id}, limit = max_limit))
+    if user_diaries is None:
+        user_diaries = []
+    return user_diaries
+    
 
 def save_diary_entry(title, content, emotion, author, date, depression=0, isolation=0, frustration=0):
     """save new diary in db"""
@@ -85,6 +94,47 @@ def get_emotion_stats(request: Request):
         "avg_isolation": round(total_isolation / total_entries, 1),
         "avg_frustration": round(total_frustration / total_entries, 1),
     }
+
+def get_emotion_stats_for_user(user_id: str):
+    """감정 통계 데이터 (특정 사용자)"""
+    diary_entries = list(load_diary_entries_for_user(user_id))
+    total_entries = len(diary_entries)
+    if total_entries == 0:
+        return {
+            "emotion_counts": {},
+            "total_entries": 0,
+            "average_score": 0,
+            "total_score": 0,
+            "avg_depression": 0,
+            "avg_isolation": 0,
+            "avg_frustration": 0,
+        }
+    emotion_counts = {}
+    total_depression = 0
+    total_isolation = 0
+    total_frustration = 0
+    for entry in diary_entries:
+        emotion = entry.get('emotion', '😊')
+        emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+        total_depression += entry.get('depression', 0)
+        total_isolation += entry.get('isolation', 0)
+        total_frustration += entry.get('frustration', 0)
+    emotion_scores = {
+        '😊': 5, '😄': 5, '😌': 4, '🙏': 4,
+        '😟': 2, '😰': 2,
+        '😢': 1, '😠': 1, '😔': 1
+    }
+    total_score = sum(emotion_scores.get(emotion, 3) * count for emotion, count in emotion_counts.items())
+    average_score = total_score / total_entries
+    return {
+        "emotion_counts": emotion_counts,
+        "total_entries": total_entries,
+        "average_score": round(average_score, 2),
+        "total_score": total_score,
+        "avg_depression": round(total_depression / total_entries, 1),
+        "avg_isolation": round(total_isolation / total_entries, 1),
+        "avg_frustration": round(total_frustration / total_entries, 1),
+    }
     
     
     
@@ -130,23 +180,6 @@ async def view_diary_page(request: Request):
         "current_user": current_user, # 사용자 정보 전달
     })
 
-@router.get("/emoters", response_class=HTMLResponse)
-async def view_emoters_page(request: Request):
-    """Linker 전용 Emoter보기 엔드포인트 (임시로 view.html 재사용)"""
-    current_user = get_current_user(request)
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
-
-    # 현재는 사용자 자신의 일기 목록을 그대로 보여줌. 추후 Emoter 피드로 변경 가능.
-    all_entries = load_diary_entries(request)
-    all_entries.reverse()
-
-    return templates.TemplateResponse("view.html", {
-        "request": request,
-        "all_entries": all_entries,
-        "total_entries": len(all_entries),
-        "current_user": current_user,
-    })
 
 @router.post("/save-diary")
 async def save_diary(
@@ -163,7 +196,7 @@ async def save_diary(
         return RedirectResponse(url="/login", status_code=303)
     # Linker는 저장 차단
     if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
-        return RedirectResponse(url="/view", status_code=303)
+        return RedirectResponse(url="/emoters", status_code=303)
 
     save_diary_entry(title, content, emotion, current_user.get("id"), today)
     return RedirectResponse(url="/view", status_code=303)

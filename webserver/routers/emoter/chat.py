@@ -153,7 +153,7 @@ async def transcribe_audio(audio_file: UploadFile):
     
     api_key = server_config.GOOGLE_STT_KEY # Google STT에 GOOGLE_STT_KEY 사용
     if not api_key:
-        print("⚠️ Google STT API 키 (GOOGLE_STT_KEY)를 로드하지 못했습니다. .env 파일을 확인해주세요.")
+        print("Google STT API 키 (GOOGLE_STT_KEY)를 로드하지 못했습니다. .env 파일을 확인해주세요.")
         return JSONResponse({"transcript": "음성 인식 서비스 키가 설정되지 않았습니다."}, status_code=500)
 
     audio_content = await audio_file.read()

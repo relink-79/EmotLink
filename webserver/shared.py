@@ -39,6 +39,7 @@ client = MongoClient('mongodb://localhost:27017/')
 db = client.emotlink_db
 users = db.users
 diaries = db.diaries
+links = db.links
 
 
 # Temporal chat sessions

@@ -71,10 +71,7 @@ async def home(request: Request):
         acct_type = 0
 
     if acct_type == 1:  # EmoterLinker
-        return templates.TemplateResponse("home_linker.html", {
-            "request": request,
-            "current_user": current_user,
-        })
+        return RedirectResponse(url="/emoters", status_code=303)
     else:  # Emoter(default)
         stats = get_emotion_stats(request)
         return templates.TemplateResponse("home.html", {

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Emoter 보기 - EmotLink{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 mb-8">
+  <h2 class="text-2xl font-bold text-gray-800 mb-4">연결한 Emoter</h2>
+
+  <form action="/emoters/add" method="post" class="flex flex-col sm:flex-row gap-3 mb-6">
+    <input name="emoter_id" type="text" placeholder="Emoter 아이디 또는 이메일"
+           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+           required>
+    <button type="submit" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">추가</button>
+  </form>
+
+  {% if emoters and emoters|length > 0 %}
+  <ul class="divide-y divide-gray-200">
+    {% for u in emoters %}
+    <li class="py-4 flex items-center justify-between">
+      <div>
+        <div class="font-semibold text-gray-800">{{ u.name }} <span class="text-gray-500 text-sm">(@{{ u.id }})</span></div>
+        <div class="text-sm text-gray-500">{{ u.email }}</div>
+        {% set st = status_map.get(u.id, 'pending') %}
+        <div class="mt-1">
+          {% if st == 'accepted' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">연결됨</span>
+          {% elif st == 'pending' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">대기중</span>
+          {% elif st == 'declined' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">거절됨</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        {% if st == 'accepted' %}
+          <a href="/emoters/{{ u.id }}/stats" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+            감정스코어 보기
+          </a>
+        {% else %}
+          <button class="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="Emoter의 수락이 필요합니다." disabled>
+            감정스코어 보기
+          </button>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="text-gray-500">아직 연결한 Emoter가 없습니다. 위 입력란에 Emoter 아이디 또는 이메일을 입력해 추가해 보세요.</div>
+  {% endif %}
+</div>
+{% endblock %}
