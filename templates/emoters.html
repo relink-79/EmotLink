@@ -36,10 +36,16 @@
           <a href="/emoters/{{ u.id }}/stats" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
             감정스코어 보기
           </a>
+          <form action="/emoters/{{ u.id }}/remove" method="post">
+            <button type="submit" class="px-4 py-2 bg-white border text-gray-700 rounded-lg hover:bg-gray-50">연결 해제</button>
+          </form>
         {% else %}
           <button class="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="Emoter의 수락이 필요합니다." disabled>
             감정스코어 보기
           </button>
+          <form action="/emoters/{{ u.id }}/remove" method="post">
+            <button type="submit" class="px-4 py-2 bg-white border text-gray-700 rounded-lg hover:bg-gray-50">요청 취소</button>
+          </form>
         {% endif %}
       </div>
     </li>
