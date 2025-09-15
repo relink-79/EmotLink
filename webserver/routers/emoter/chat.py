@@ -69,6 +69,9 @@ async def start_chat(request: Request):
     current_user = get_current_user(request)
     if not current_user:
         return JSONResponse(status_code=401, content={"error": "Authentication required"})
+    # Linker는 채팅 시작 차단
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return JSONResponse(status_code=403, content={"error": "forbidden"})
  
     user_id = current_user.get("id")
     room_id = str(uuid_utils.uuid7())
@@ -94,6 +97,9 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     current_user = get_current_user(request)
     if not current_user:
         return JSONResponse(status_code=401, content={"error": "Authentication required"})
+    # Linker는 메시지 전송 차단
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return JSONResponse(status_code=403, content={"error": "forbidden"})
     
     user_id = current_user.get("id")
     room_id = user_message.room_id

@@ -12,6 +12,9 @@ async def emotion_stats_page(request: Request):
     current_user = get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
+    # Linker는 접근 차단 -> /emoters로 이동
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return RedirectResponse(url="/emoters", status_code=303)
         
     stats = get_emotion_stats(request)
     
@@ -25,4 +28,9 @@ async def emotion_stats_page(request: Request):
 @router.get("/api/stats")
 async def get_stats(request: Request):
     """감정 통계 API (JSON)"""
+    current_user = get_current_user(request)
+    if not current_user:
+        return {"error": "unauthorized"}
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return {"error": "forbidden"}
     return get_emotion_stats(request)

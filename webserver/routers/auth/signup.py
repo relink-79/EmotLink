@@ -24,6 +24,7 @@ async def signup(request: Request,
                 password: str = Form(...), 
                 password_confirm: str = Form(...), 
                 birthday: str = Form(...),
+                account_type: int = Form(...),
                 verification_token: str = Form(...)):
     """이메일 인증 후 회원가입 완료"""
     
@@ -48,13 +49,16 @@ async def signup(request: Request,
 
     # 4. 스키마에 맞게 데이터 가공
     try:
+        # account_type validation (0: Emoter, 1: EmoterLinker)
+        if account_type not in [0, 1]:
+            return templates.TemplateResponse("signup.html", {"request": request, "error": "잘못된 가입 유형입니다."})
         new_user = {
             "id": id,
             "name": name,
             "email": email,
             "password": bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode("utf-8"),
             "birthday": datetime.datetime.strptime(birthday, "%Y-%m-%d"),
-            "account_type": 0,
+            "account_type": int(account_type),
             "email_verified": True,
             "created_at": datetime.datetime.now(datetime.timezone.utc)
         }

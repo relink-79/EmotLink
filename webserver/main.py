@@ -64,14 +64,24 @@ async def home(request: Request):
     if not current_user: # 로그인 안됐을 때
         return RedirectResponse(url="/login", status_code=303)
     
-    # 로그인 됐을 때
-    stats = get_emotion_stats(request)
-    
-    return templates.TemplateResponse("home.html", {
-        "request": request,
-        "stats": stats,
-        "current_user": current_user, # 사용자 정보 전달
-    })
+    # 로그인 됐을 때: 계정 유형에 따라 다른 홈 화면
+    try:
+        acct_type = current_user.get("account_type", 0)
+    except Exception:
+        acct_type = 0
+
+    if acct_type == 1:  # EmoterLinker
+        return templates.TemplateResponse("home_linker.html", {
+            "request": request,
+            "current_user": current_user,
+        })
+    else:  # Emoter(default)
+        stats = get_emotion_stats(request)
+        return templates.TemplateResponse("home.html", {
+            "request": request,
+            "stats": stats,
+            "current_user": current_user, # 사용자 정보 전달
+        })
 
 
 @app.get("/settings", response_class=HTMLResponse)

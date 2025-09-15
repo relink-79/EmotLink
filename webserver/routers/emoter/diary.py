@@ -101,6 +101,9 @@ async def write_diary_page(request: Request):
     current_user = get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
+    # Linker는 접근 차단
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return RedirectResponse(url="/emoters", status_code=303)
         
     return templates.TemplateResponse("write.html", {
         "request": request,
@@ -113,6 +116,9 @@ async def view_diary_page(request: Request):
     current_user = get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
+    # Linker는 /view 접근 차단 -> /emoters로 이동
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return RedirectResponse(url="/emoters", status_code=303)
 
     all_entries = load_diary_entries(request)
     all_entries.reverse()  # 최신순
@@ -122,6 +128,24 @@ async def view_diary_page(request: Request):
         "all_entries": all_entries,
         "total_entries": len(all_entries),
         "current_user": current_user, # 사용자 정보 전달
+    })
+
+@router.get("/emoters", response_class=HTMLResponse)
+async def view_emoters_page(request: Request):
+    """Linker 전용 Emoter보기 엔드포인트 (임시로 view.html 재사용)"""
+    current_user = get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # 현재는 사용자 자신의 일기 목록을 그대로 보여줌. 추후 Emoter 피드로 변경 가능.
+    all_entries = load_diary_entries(request)
+    all_entries.reverse()
+
+    return templates.TemplateResponse("view.html", {
+        "request": request,
+        "all_entries": all_entries,
+        "total_entries": len(all_entries),
+        "current_user": current_user,
     })
 
 @router.post("/save-diary")
@@ -135,9 +159,13 @@ async def save_diary(
     """일기 저장 API"""
     today = datetime.datetime.now(datetime.timezone.utc)
     current_user = get_current_user(request)
-    if current_user:
-        save_diary_entry(title, content, emotion, current_user.get("id"), today)
-    
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+    # Linker는 저장 차단
+    if current_user.get("role") == "linker" or current_user.get("account_type") == 1:
+        return RedirectResponse(url="/view", status_code=303)
+
+    save_diary_entry(title, content, emotion, current_user.get("id"), today)
     return RedirectResponse(url="/view", status_code=303)
 
 @router.get("/api/diary-entries")
