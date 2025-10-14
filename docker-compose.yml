@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27018:27017"
+    volumes:
+      - emotlink_mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    ports:
+      - "21102:6379"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2024.10.0
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  emotlink_mongo_data:

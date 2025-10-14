@@ -3,6 +3,7 @@ from fastapi_mail import FastMail, ConnectionConfig
 from pymongo import MongoClient
 from fastapi.templating import Jinja2Templates
 import redis
+import os
 
 
 
@@ -14,7 +15,7 @@ import redis
 
 # SMTP
 MAIL_USERNAME = server_config.MAIL_USERNAME
-MAIL_PASSWORD = SecretStr(server_config.MAIL_PASSWORD)
+MAIL_PASSWORD = server_config.MAIL_PASSWORD
 MAIL_FROM = server_config.MAIL_FROM
 MAIL_SERVER = server_config.MAIL_SERVER
 MAIL_PORT = server_config.MAIL_PORT
@@ -35,15 +36,21 @@ fastmail = FastMail(mail_config)
 
 
 # MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
+client = MongoClient(MONGO_URL)
 db = client.emotlink_db
 users = db.users
 diaries = db.diaries
 links = db.links
 
 
+# Redis connection settings
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "21101"))
+
+
 # Temporal chat sessions
-chat_sessions = redis.Redis(host='localhost', port=21101, db=0)
+chat_sessions = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
 ''' redis sorted set
 chat:messages:{room_id} => json
 {
@@ -58,7 +65,7 @@ chat:messages:{room_id} => json
 
 
 # chat participants
-chat_users = redis.Redis(host='localhost', port=21101, db=1)
+chat_users = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=1)
 ''' redis set
 chat:{room_id} => json
 {
@@ -70,7 +77,7 @@ chat:{room_id} => json
 
 
 # email verification status
-email_verification_cache = redis.Redis(host='localhost', port=21101, db=2)
+email_verification_cache = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=2)
 ''' redis string
 email_verified:{email} => json
 {
