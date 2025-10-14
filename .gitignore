@@ -11,3 +11,4 @@
 .vscode
 pyrightconfig.json
 .webserver/__pycache__
+*.pyc

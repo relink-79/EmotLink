@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: emotlink_fastapi_server
     build: .
     ports:
       - "8001:8000"
@@ -17,6 +18,7 @@ services:
     restart: unless-stopped
 
   mongo:
+    container_name: emotlink_mongo
     image: mongo:7
     ports:
       - "27018:27017"
@@ -25,12 +27,14 @@ services:
     restart: unless-stopped
 
   redis:
+    container_name: emotlink_redis
     image: redis:7
     ports:
       - "21102:6379"
     restart: unless-stopped
 
   cloudflared:
+    container_name: emotlink_cloudflared
     image: cloudflare/cloudflared:2024.10.0
     command: tunnel run
     environment:
