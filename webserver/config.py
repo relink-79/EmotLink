@@ -23,6 +23,9 @@ class ServerConfig(BaseSettings):
     MAIL_SERVER: str = "smtp.gmail.com"
     MAIL_PORT: int = 587
     
+    # public base url for links in emails and external callbacks
+    PUBLIC_BASE_URL: str = "https://emotlink.com"
+    
     model_config = SettingsConfigDict(
         env_file=[".env", "../.env"],  # 여러 경로 시도
         env_file_encoding="utf-8",

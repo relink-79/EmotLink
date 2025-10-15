@@ -32,7 +32,8 @@ def verify_email_verification_token(token: str) -> dict | None:
         return None
 
 async def send_verification_email(email: str, verification_token: str):
-    verification_url = f"http://localhost:8000/verify-email?token={verification_token}"
+    base_url = server_config.PUBLIC_BASE_URL.rstrip("/") if hasattr(server_config, "PUBLIC_BASE_URL") else "https://emotlink.com"
+    verification_url = f"{base_url}/verify-email?token={verification_token}"
     
     html_body = f"""
     <!DOCTYPE html>
