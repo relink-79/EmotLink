@@ -202,6 +202,7 @@
             const passwordConfirmInput = document.getElementById('password_confirm');
             
             checkLocalStorageVerification(); // check verification status from local storage
+            checkPendingStatus(); // check pending status from local storage
             
             // form validation
             let validationState = {
@@ -272,6 +273,10 @@
                             
                             // start verification check (interval)
                             startVerificationCheck(email);
+
+                            // lock email while pending and save pending state (30 min TTL handled on restore)
+                            setPendingStatus(email);
+                            lockEmailWhilePending();
                         } else {
                             showMessage(result.message, 'error');
                             sendVerificationBtn.textContent = originalText;
@@ -536,6 +541,70 @@
                     }
                 }
             }
+
+            // =============== Pending Handling (lock on send, auto-release by TTL or after signup) ===============
+            function setPendingStatus(email) {
+                const data = {
+                    pending: true,
+                    email: email,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('email_verification_pending', JSON.stringify(data));
+            }
+
+            function clearPendingStatus() {
+                localStorage.removeItem('email_verification_pending');
+            }
+
+            function lockEmailWhilePending() {
+                const emailInput = document.getElementById('email');
+                const sendVerificationBtn = document.getElementById('send-verification');
+                if (emailInput) emailInput.readOnly = true;
+                if (sendVerificationBtn) {
+                    sendVerificationBtn.disabled = true;
+                    sendVerificationBtn.classList.add('cursor-not-allowed', 'opacity-50');
+                    sendVerificationBtn.textContent = '인증 대기중';
+                }
+            }
+
+            function unlockEmailFromPending() {
+                const emailInput = document.getElementById('email');
+                const sendVerificationBtn = document.getElementById('send-verification');
+                if (emailInput) {
+                    emailInput.readOnly = false;
+                }
+                if (sendVerificationBtn) {
+                    sendVerificationBtn.disabled = false;
+                    sendVerificationBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+                    // 기본 버튼 스타일로 복원
+                    sendVerificationBtn.textContent = '인증메일 발송';
+                    sendVerificationBtn.className = 'px-4 py-3 font-semibold rounded-lg transition-colors whitespace-nowrap bg-gray-200 text-gray-700 hover:bg-gray-300';
+                }
+            }
+
+            function checkPendingStatus() {
+                try {
+                    const raw = localStorage.getItem('email_verification_pending');
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    const now = new Date().getTime();
+                    const ttlOk = (now - data.timestamp) < 30 * 60 * 1000; // 30분
+                    if (data && data.pending && ttlOk && data.email) {
+                        // restore pending state
+                        const emailInput = document.getElementById('email');
+                        if (emailInput) emailInput.value = data.email;
+                        lockEmailWhilePending();
+                        startVerificationCheck(data.email);
+                    } else {
+                        // expired or invalid -> clear and unlock
+                        clearPendingStatus();
+                        unlockEmailFromPending();
+                    }
+                } catch (e) {
+                    clearPendingStatus();
+                    unlockEmailFromPending();
+                }
+            }
             
             // check verification status from server (interval)
             function startVerificationCheck(email) {
@@ -581,6 +650,8 @@
                     timestamp: new Date().getTime()
                 };
                 localStorage.setItem('email_verification_status', JSON.stringify(verificationData));
+                // clear pending once verified
+                clearPendingStatus();
                 
                 // change email field
                 emailInput.value = email;

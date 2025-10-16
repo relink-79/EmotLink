@@ -101,8 +101,11 @@
     <script>
         const serverData = JSON.parse(document.getElementById('server-data').textContent);
         if (serverData.success) {
-            // remove previous verification status
-            localStorage.clear();
+            // 가입 완료 후, 인증 관련 키만 제거
+            try {
+                localStorage.removeItem('email_verification_status');
+                localStorage.removeItem('email_verification_pending');
+            } catch (e) {}
         }
     </script>
 </body>
