@@ -54,11 +54,15 @@
         <!-- Danger Zone -->
         <div>
             <h3 class="text-xl font-semibold text-red-600 border-b border-red-200 pb-2 mb-4">위험 구역</h3>
-            <div class="flex items-center justify-between">
-                <p class="text-gray-600">모든 데이터를 삭제하고 앱을 초기화합니다.</p>
-                <button class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors">
-                    데이터 초기화
-                </button>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-gray-600">계정을 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
+                    <form action="/account/delete" method="post" onsubmit="return confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors">
+                            회원탈퇴
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
