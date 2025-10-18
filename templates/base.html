@@ -28,7 +28,7 @@
                     <div class="flex items-center justify-end space-x-4">
                         {% if current_user %}
                             <div class="text-sm">
-                                <span class="font-semibold text-indigo-600">{{ current_user.name }}</span>님, 환영합니다!
+                                <span id="current-user-name" class="font-semibold text-indigo-600">{{ current_user.name }}</span>님, 환영합니다!
                             </div>
                             <a href="/logout" class="inline-flex items-center px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors" title="로그아웃">
                                 <i class="fas fa-sign-out-alt"></i>

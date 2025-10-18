@@ -23,11 +23,15 @@
             <div class="space-y-4">
                 <div class="flex items-center justify-between">
                     <label for="nickname" class="text-gray-600">닉네임</label>
-                    <input type="text" id="nickname" value="사용자" class="w-1/2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="nickname" value="{{ current_user.name }}" class="w-1/2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-gray-600">역할</span>
-                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ current_role }}</span>
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ "EmotLinker" if current_user.account_type == 1 else "Emoter" }}</span>
+                </div>
+                <div id="profile-actions" class="flex items-center justify-end space-x-3 hidden">
+                    <button id="cancel-nickname" class="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors">취소</button>
+                    <button id="save-nickname" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">저장</button>
                 </div>
             </div>
         </div>
@@ -76,4 +80,66 @@
         transform: translateX(1.75rem); /* w-7 = 1.75rem */
     }
 </style>
+<script>
+    (function() {
+        const input = document.getElementById('nickname');
+        const actions = document.getElementById('profile-actions');
+        const btnCancel = document.getElementById('cancel-nickname');
+        const btnSave = document.getElementById('save-nickname');
+        
+        let currentUserName = (function() {
+            const headerNameEl = document.getElementById('current-user-name');
+            const headerText = headerNameEl ? (headerNameEl.textContent || '').trim() : '';
+            return headerText || '{{ current_user.name }}';
+        })();
+
+        function hasChanged() {
+            return (input.value || '').trim() !== (currentUserName || '').trim();
+        }
+
+        function toggleActions() {
+            if (hasChanged()) {
+                actions.classList.remove('hidden');
+            } else {
+                actions.classList.add('hidden');
+            }
+        }
+
+        input.addEventListener('input', toggleActions);
+
+        btnCancel.addEventListener('click', function() {
+            input.value = currentUserName;
+            toggleActions();
+        });
+
+        // save new nickname
+        btnSave.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('name', input.value.trim());
+            try {
+                const res = await fetch('/account/update-name', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (data && data.ok) {
+                    // update current nickname value & 
+                    input.value = data.name;
+                    const headerNameEl = document.getElementById('current-user-name');
+                    if (headerNameEl) {
+                        headerNameEl.textContent = data.name;
+                    }
+                    currentUserName = data.name;
+                    actions.classList.add('hidden');
+                } else {
+                    alert((data && data.message) || '닉네임을 저장하지 못했습니다.');
+                }
+            } catch (e) {
+                alert('요청 중 오류가 발생했습니다.');
+            }
+        });
+
+        toggleActions();
+    })();
+</script>
 {% endblock %} 
