@@ -1,6 +1,6 @@
 from fastapi import Request, APIRouter, Form
 from fastapi.responses import RedirectResponse, JSONResponse
-from ...shared import diaries, links, users
+from ...shared import diaries, links, users, chat_sessions, chat_users
 from .auth import get_current_user
 from .login import create_login_token
 
@@ -25,6 +25,15 @@ async def delete_account(request: Request):
         links.delete_many({"emoter_id": user_id})
         links.delete_many({"linker_id": user_id})
         users.delete_one({"id": user_id})
+
+        # delete all redis chat sessions that the user participates in
+        # scan participants sets and remove related message sorted sets
+        for key in chat_users.scan_iter(match="chat:participants:*"):
+            k = key.decode() if isinstance(key, (bytes, bytearray)) else str(key)
+            if chat_users.sismember(key, user_id):
+                room_id = k.split(":")[-1]
+                chat_sessions.delete(f"chat:messages:{room_id}")
+                chat_users.delete(key)
 
     except Exception:
         response = RedirectResponse(url="/login", status_code=303)
