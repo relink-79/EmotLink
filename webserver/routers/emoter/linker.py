@@ -2,7 +2,7 @@ from fastapi import Request, APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from ...shared import templates, users, links
 from ..auth.auth import get_current_user
-from .diary import get_emotion_stats_for_user
+from .diary import get_emotion_stats_for_user, get_health_indicator_for_user
 import datetime
 
 router = APIRouter()
@@ -27,15 +27,26 @@ async def emoters_page(request: Request):
     emoter_ids = [l.get("emoter_id") for l in linked]
     status_map = {l.get("emoter_id"): l.get("status", "pending") for l in linked}
     emoter_list = []
+    health_map = {}
     if emoter_ids:
         cursor = users.find({"id": {"$in": emoter_ids}}, {"password": 0})
         emoter_list = list(cursor)
+        # 각 emoter의 건강 인디케이터 계산
+        for u in emoter_list:
+            uid = u.get("id")
+            if not uid:
+                continue
+            try:
+                health_map[uid] = get_health_indicator_for_user(uid)
+            except Exception:
+                health_map[uid] = {"color": "green", "delta": 0.0}
 
     return templates.TemplateResponse("emoters.html", {
         "request": request,
         "current_user": current_user,
         "emoters": emoter_list,
         "status_map": status_map,
+        "health_map": health_map,
         "message": None,
         "error": None,
     })

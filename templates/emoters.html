@@ -32,6 +32,12 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        {% set h = (health_map.get(u.id) if health_map is defined else None) %}
+        {% if h %}
+        <span class="inline-block w-3 h-3 rounded-full mr-1"
+              style="background-color: {% if h.color == 'red' %}#ef4444{% elif h.color == 'orange' %}#f59e0b{% else %}#22c55e{% endif %};"
+              title="최근 변화량: {{ h.delta }}"></span>
+        {% endif %}
         {% if st == 'accepted' %}
           <a href="/emoters/{{ u.id }}/stats" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
             감정스코어 보기

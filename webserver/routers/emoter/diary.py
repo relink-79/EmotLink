@@ -46,6 +46,54 @@ def save_diary_entry(title, content, emotion, author, date, depression=0, isolat
     diaries.insert_one(new_entry)
     return new_entry
 
+def _get_last_two_entries_for_user(user_id: str) -> list:
+    """최근 두 개의 일기 엔트리를 최신순으로 반환 (없으면 빈 리스트)"""
+    if not user_id:
+        return []
+    try:
+        cursor = diaries.find({"author_id": user_id}).sort("created_at", -1).limit(2)
+        return list(cursor)
+    except Exception:
+        return []
+
+def get_health_indicator_for_user(user_id: str) -> dict:
+    """최근 일기 2개의 (depression,isolation,frustration) 평균 변화량으로 건강 인디케이터 계산
+    규칙:
+      - avgDelta >= 30  => red
+      - avgDelta >= 15 또는 avgDelta <= -30 => orange
+      - 그 외 => green
+    엔트리가 1개 이하이면 green
+    반환: { color: str, delta: float }
+    """
+    entries = _get_last_two_entries_for_user(user_id)
+    if len(entries) < 2:
+        return {"color": "green", "delta": 0.0}
+
+    last = entries[0]
+    prev = entries[1]
+
+    # 세 지표의 합 또는 평균 중 스펙 상 "평균" 기준으로 계산
+    last_avg = (
+        float(last.get("depression", 0)) +
+        float(last.get("isolation", 0)) +
+        float(last.get("frustration", 0))
+    ) / 3.0
+    prev_avg = (
+        float(prev.get("depression", 0)) +
+        float(prev.get("isolation", 0)) +
+        float(prev.get("frustration", 0))
+    ) / 3.0
+
+    avg_delta = round(last_avg - prev_avg, 1)
+
+    color = "green"
+    if avg_delta >= 30:
+        color = "red"
+    elif avg_delta >= 15 or avg_delta <= -30:
+        color = "orange"
+
+    return {"color": color, "delta": avg_delta}
+
 def get_emotion_stats(request: Request):
     """감정 통계 데이터 생성"""
     diary_entries = list(load_diary_entries(request))
