@@ -16,6 +16,10 @@ class ServerConfig(BaseSettings):
     SOLAR_API_URL: str = "https://api.upstage.ai/v1/solar/chat/completions"
     GOOGLE_STT_URL: str = "https://speech.googleapis.com/v1/speech:recognize"
     
+    # self-hosted model info
+    SELF_HOSTED_MODEL_URL: str = "http://relink79.com/api/stream"
+    SELF_HOSTED_API_KEY: str = ""
+    
     # smtp info
     MAIL_USERNAME: str = ""
     MAIL_PASSWORD: str = ""

@@ -47,6 +47,19 @@
                 <i class="fas fa-comments-dollar text-indigo-500 mr-2"></i>
                 AI와 대화하며 일기 쓰기
             </h3>
+            
+            <!-- 모델 선택 -->
+            <div class="flex items-center space-x-4 ml-4">
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="radio" name="chat-model" value="solar-pro" class="form-radio text-indigo-600" checked>
+                    <span class="ml-2 text-sm text-gray-700">Solar Pro</span>
+                </label>
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="radio" name="chat-model" value="emotlink-model" class="form-radio text-pink-600">
+                    <span class="ml-2 text-sm text-gray-700">EmotLink Model</span>
+                </label>
+            </div>
+
             <button id="close-chat-btn" class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times fa-lg"></i>
             </button>
@@ -95,9 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
         resetChat();
         
         try {
+            const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
             const response = await fetch('/chat/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: selectedModel })
             });
 
             if (!response.ok) throw new Error('채팅 시작에 실패했습니다.');
@@ -136,10 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleInput(true);
 
         try {
+            const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
             const response = await fetch('/chat/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message, room_id: roomId })
+                body: JSON.stringify({ message: message, room_id: roomId, model: selectedModel })
             });
 
             if (!response.ok) throw new Error('메시지 전송에 실패했습니다.');

@@ -15,6 +15,10 @@ from .ai_processing import *
 class ChatMessage(BaseModel):
     room_id: str
     message: str
+    model: str = "solar-pro" # default to solar-pro
+
+class StartChatRequest(BaseModel):
+    model: str = "solar-pro"
 
 
 
@@ -64,7 +68,7 @@ def get_messages(room_id, cnt=12):
 router = APIRouter()
 
 @router.post("/chat/start")
-async def start_chat(request: Request):
+async def start_chat(request: Request, start_request: StartChatRequest = None):
     """채팅 세션을 초기화하고 고정된 첫 질문을 반환합니다."""
     current_user = get_current_user(request)
     if not current_user:
@@ -84,6 +88,13 @@ async def start_chat(request: Request):
     first_question = "안녕하세요! 오늘 하루는 어떠셨나요?"
     
     send_message(room_id, user_id, first_question, "assistant")
+    
+    # Store selected model in redis for this session
+    model_key = f"chat:model:{room_id}"
+    selected_model = start_request.model if start_request else "solar-pro"
+    chat_sessions.set(model_key, selected_model)
+    chat_sessions.expire(model_key, 7200)
+    
     if user_id:
         chat_users.sadd(f"chat:participants:{room_id}", user_id)
     chat_users.expire(f"chat:participants:{room_id}", 7200) # 2H TTL
@@ -127,7 +138,19 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     current_conversation = get_messages(room_id, 30)
     
     # AI에게 다음 질문 생성 요청 (await 추가)
-    ai_message = await get_ai_question(current_conversation)
+    # Retrieve model from redis or request
+    model_key = f"chat:model:{room_id}"
+    
+    # Always update the model if provided in the message (allows switching after start_chat)
+    if user_message.model:
+        selected_model = user_message.model
+        chat_sessions.set(model_key, selected_model)
+        chat_sessions.expire(model_key, 7200)
+    else:
+        stored_model = chat_sessions.get(model_key)
+        selected_model = stored_model.decode('utf-8') if stored_model else "solar-pro"
+    
+    ai_message = await get_ai_question(current_conversation, model=selected_model)
     
     # AI 응답을 대화 기록에 추가 (role: 'assistant'로 변경)
     send_message(room_id, user_id, ai_message, "assistant")
@@ -135,7 +158,7 @@ async def post_chat_message(request: Request, user_message: ChatMessage):
     # 대화 종료 시 일기 자동 생성 및 세션 정리
     if ai_message.get("finished") and user_id:
         # 백그라운드에서 일기 생성 및 저장 실행 (응답이 사용자에게 즉시 가도록)
-        await generate_and_save_diary(user_id, current_conversation)
+        await generate_and_save_diary(user_id, current_conversation, model=selected_model)
         if chat_sessions.exists(key) == 1 or chat_users.exists(f"chat:participants:{room_id}"):
             chat_sessions.delete(key)
             chat_users.delete(f"chat:participants:{room_id}")

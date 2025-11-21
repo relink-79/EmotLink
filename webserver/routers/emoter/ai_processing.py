@@ -3,6 +3,7 @@ from ...config import *
 import datetime
 import httpx
 from typing import List
+from urllib.parse import urlparse
 
 from .diary import save_diary_entry
 
@@ -11,8 +12,8 @@ SOLAR_API_KEY = server_config.SOLAR_API_KEY
 SOLAR_API_URL = "https://api.upstage.ai/v1/solar/chat/completions"
 
 
-async def get_ai_question(conversation_history: List[dict]) -> dict:
-    """Solar API를 호출하여 다음 질문 또는 최종 메시지를 생성합니다."""
+async def get_ai_question(conversation_history: List[dict], model: str = "solar-pro") -> dict:
+    """Solar API 또는 Self-Hosted API를 호출하여 다음 질문 또는 최종 메시지를 생성합니다."""
     
     headers = {
         "Content-Type": "application/json",
@@ -57,32 +58,115 @@ async def get_ai_question(conversation_history: List[dict]) -> dict:
         "model": "solar-1-mini-chat",
         "messages": messages,
         "temperature": 0.5,
-        "top_p": 0.9, # 파라미터 추가
-        "n": 1, # 파라미터 추가
+        "top_p": 0.9,
+        "n": 1,
         "stream": False
     }
 
-    try:
-        # requests.post를 httpx.AsyncClient.post로 변경
-        async with httpx.AsyncClient() as client:
-            response = await client.post(SOLAR_API_URL, headers=headers, json=payload, timeout=30.0)
-            response.raise_for_status() # 오류 발생 시 예외 처리
-        
-        ai_response = response.json()["choices"][0]["message"]["content"]
-        
-        if "END_CHAT" in ai_response:
-            return {"response": ai_response.replace("END_CHAT", "").strip(), "finished": True}
-        else:
-            return {"response": ai_response, "finished": False}
-
-    except httpx.RequestError as e:
-        print(f"Solar API 호출 오류: {e}")
-        return {"response": "죄송합니다, AI 모델과 통신하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.", "finished": True}
-
-
-async def generate_and_save_diary(user_id: str, conversation_history: List[dict]):
-    """Solar API를 호출하여 대화 내용 기반으로 일기를 생성하고 저장합니다."""
+    # Flag to determine if we should use solar (initially true if model != emotlink-model)
+    use_solar = (model != "emotlink-model")
     
+    if model == "emotlink-model":
+        try:
+            # Self-Hosted Model Logic (OpenAI Compatible)
+            # Construct URL: extract base (scheme + netloc) and append /v1/chat/completions
+            parsed_url = urlparse(server_config.SELF_HOSTED_MODEL_URL)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            api_url = f"{base_url}/v1/chat/completions"
+            
+            api_key = server_config.SELF_HOSTED_API_KEY
+            
+            # Override headers for self-hosted model
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-API-Key": api_key,
+            }
+            
+            # Reformat messages for the self-hosted model
+            messages_payload = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            # Adjust payload for self-hosted model with guardrails disabled
+            payload = {
+                "model": "/model",
+                "messages": messages_payload,
+                "stream": False, 
+                "max_tokens": 1024,
+                "disable_guardrails": True,
+                "disable_reasoning_filter": True,
+            }
+            
+            print(f"Sending request to Self-Hosted Model: {api_url}")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(api_url, headers=headers, json=payload, timeout=60.0)
+                
+                if response.status_code != 200:
+                    print(f"Self-Hosted API Error: {response.status_code} - {response.text}")
+                    print("Falling back to Solar API...")
+                    use_solar = True
+                else:
+                    try:
+                        response_data = response.json()
+                        if "choices" in response_data:
+                            ai_response = response_data["choices"][0]["message"]["content"]
+                        else:
+                            ai_response = str(response_data)
+                            
+                        if "END_CHAT" in ai_response:
+                            return {"response": ai_response.replace("END_CHAT", "").strip(), "finished": True}
+                        else:
+                            return {"response": ai_response, "finished": False}
+                    except:
+                        ai_response = response.text
+                        print("Failed to parse self-hosted response, falling back to Solar")
+                        use_solar = True
+
+        except Exception as e:
+            print(f"Self-Hosted Model Exception: {e}")
+            print("Falling back to Solar API...")
+            use_solar = True
+
+    if use_solar:
+        try:
+            # Default: Solar Pro Logic
+            # Reset headers for Solar
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {SOLAR_API_KEY}"
+            }
+            
+            # Reset payload for Solar
+            payload = {
+                "model": "solar-1-mini-chat",
+                "messages": messages,
+                "temperature": 0.5,
+                "top_p": 0.9,
+                "n": 1,
+                "stream": False
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(SOLAR_API_URL, headers=headers, json=payload, timeout=30.0)
+                response.raise_for_status()
+                ai_response = response.json()["choices"][0]["message"]["content"]
+        
+            if "END_CHAT" in ai_response:
+                return {"response": ai_response.replace("END_CHAT", "").strip(), "finished": True}
+            else:
+                return {"response": ai_response, "finished": False}
+        except httpx.RequestError as e:
+            print(f"API 호출 오류 (Solar): {e}")
+            return {"response": "죄송합니다, AI 모델과 통신하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.", "finished": True}
+    
+    return {"response": "오류가 발생했습니다.", "finished": False}
+
+
+async def generate_and_save_diary(user_id: str, conversation_history: List[dict], model: str = "solar-pro"):
+    """Solar API 또는 Self-Hosted API를 호출하여 대화 내용 기반으로 일기를 생성하고 저장합니다."""
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {SOLAR_API_KEY}"
@@ -117,21 +201,22 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         {"role": "user", "content": user_prompt}
     ]
 
-    payload = {
-        "model": "solar-1-mini-chat",
-        "messages": messages,
-        "temperature": 0.7,
-        "stream": False
-    }
-
     try:
+        # Always use Solar Pro Logic for Diary Generation
+        payload = {
+            "model": "solar-1-mini-chat",
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": False
+        }
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(SOLAR_API_URL, headers=headers, json=payload, timeout=60.0)
             response.raise_for_status()
         
         diary_text = response.json()["choices"][0]["message"]["content"]
         
-        # 생성된 텍스트에서 제목, 내용, 감정 및 점수 파싱
+        # 생성된 텍스트에서 제목, 내용, 감정 및 점수 파싱 (Existing Logic)
         lines = diary_text.strip().split('\n')
         
         parsed_data = {'content': []}
@@ -164,6 +249,7 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         isolation_score = parsed_data.get('isolation', 0)
         frustration_score = parsed_data.get('frustration', 0)
 
+        # Common Save Logic
         emotion_map = {'기쁨': '😊', '평온': '😌', '걱정': '😟', '슬픔': '😢', '화남': '😠'}
         emotion = emotion_map.get(emotion_text, "😊")
         
@@ -176,6 +262,7 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
         print(f"✅ Diary with emotion scores automatically saved for user {user_id}")
 
     except Exception as e:
+
         print(f"❌ 일기 생성 또는 저장 중 오류 발생: {e}")
         fallback_content = "대화를 바탕으로 일기를 생성하는 데 실패했습니다.\n\n" + history_string
         save_diary_entry(
