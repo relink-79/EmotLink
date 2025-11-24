@@ -43,6 +43,7 @@ Emoters talk with AI to organize feelings and events. Linkers (guardians/counsel
 - [📦 Containers](#-containers)
 - [🧠 About](#-about)
 - [🤝 Contributing](#-contributing)
+- [🔎 Showcase](#-showcase)
 
 </details>
 
@@ -50,7 +51,7 @@ Emoters talk with AI to organize feelings and events. Linkers (guardians/counsel
 
 - ⚡ High‑performance backend with FastAPI and Jinja templates
 - 🧩 Integrated MongoDB + Redis for data and caching/session use cases
-- 📱 Capacitor integration for Android development workflow (`run_app.py`)
+- 📱 WebView for Android development workflow (`run_app.py`)
 - 🐳 Simple local dev/run via Docker Compose
 - 🛡️ Built‑in email verification and login flows
 
@@ -60,7 +61,7 @@ Emoters talk with AI to organize feelings and events. Linkers (guardians/counsel
 - AI chat: guided conversation; on finish, auto‑generate and save a diary
 - Diary/Stats: store emotion emoji with depression/isolation/frustration scores; summaries
 - Linking: Linkers add/request; Emoters accept/decline
-- Web/Mobile: template‑based web UI and Capacitor‑powered Android flow
+- Web/Mobile: template‑based web UI and WebView‑powered Android flow
 
 ## 🧠 About
 
@@ -96,7 +97,7 @@ python -m uvicorn webserver.main:app --host 0.0.0.0 --port 8000
 Android development flow:
 
 ```bash
-# Prereqs: Node.js, Android Studio, Capacitor CLI
+# Prereqs: Node.js, Android Studio
 python run_app.py  # FastAPI server + Android launcher
 ```
 
@@ -154,6 +155,11 @@ docker compose up -d     # run in background
 docker compose logs -f   # follow logs
 docker compose down      # stop & remove
 ```
+
+## 🔎 Showcase
+|  **🔗 Link** | **📊 Inspect** | 
+| :---: | :---: |
+| ![demo img link](./assets/emotlink_demo2.png) | ![demo img inspect](./assets/emotlink_demo1.png) |
 
 ## 🤝 Contributing
 
