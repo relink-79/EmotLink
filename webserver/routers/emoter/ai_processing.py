@@ -55,7 +55,7 @@ async def get_ai_question(conversation_history: List[dict], model: str = "solar-
     ]
 
     payload = {
-        "model": "solar-1-mini-chat",
+        "model": "solar-pro",
         "messages": messages,
         "temperature": 0.5,
         "top_p": 0.9,
@@ -140,7 +140,7 @@ async def get_ai_question(conversation_history: List[dict], model: str = "solar-
             
             # Reset payload for Solar
             payload = {
-                "model": "solar-1-mini-chat",
+                "model": "solar-pro",
                 "messages": messages,
                 "temperature": 0.5,
                 "top_p": 0.9,
@@ -204,7 +204,7 @@ async def generate_and_save_diary(user_id: str, conversation_history: List[dict]
     try:
         # Always use Solar Pro Logic for Diary Generation
         payload = {
-            "model": "solar-1-mini-chat",
+            "model": "solar-pro",
             "messages": messages,
             "temperature": 0.7,
             "stream": False
