@@ -27,7 +27,12 @@ async def get_ai_question(conversation_history: List[dict], model: str = "solar-
             "당신은 사용자가 하루를 되돌아보며 일기를 쓸 수 있도록 돕는 친절하고 공감 능력 높은 AI 상담가입니다. "
             "주어진 이전 대화 내용을 바탕으로, 사용자의 말에 먼저 자연스럽게 공감하며 짧은 맞장구를 쳐주세요. "
             "그 다음에, 대화의 흐름에 맞춰 감정과 경험을 더 깊이 탐색할 수 있는 후속 질문을 하나만 던져주세요. "
-            "모든 답변은 부드럽고 자연스러운 한국어 대화체(높임말)로 해주세요. 질문만 툭 던지는 느낌을 주면 안 됩니다."
+            "모든 답변은 부드럽고 따뜻하고 자연스러운 한국어 대화체(높임말)로 해주세요. 질문만 툭 던지는 느낌을 주면 안 됩니다."
+            "당신의 생각의 근거를 절대 얘기하지마세요. 이건 채팅이라고 생각해주세요."
+            "괄호()를 사용한 설명이나 지문(예: (미소를 지으며), (공감하며))을 절대 포함하지 마세요. 오직 대화 내용만 출력하세요."
+            "하나의 답변에 딱 하나의 이모티콘만을 포함해주세요.<특히 사람 표정의 이모티콘을 우선으로 넣으세요 : 우는표정, 웃는표증 등등, 상황에 맞지 않는거같으면 아무거나 넣어도 상관없습니다.>"
+            
+            
         )
     else:
         system_prompt = (
@@ -96,7 +101,7 @@ async def get_ai_question(conversation_history: List[dict], model: str = "solar-
                 "stream": False, 
                 "max_tokens": 1024,
                 "disable_guardrails": True,
-                "disable_reasoning_filter": True,
+                "disable_reasoning_filter": False,
             }
             
             print(f"Sending request to Self-Hosted Model: {api_url}")
@@ -122,6 +127,7 @@ async def get_ai_question(conversation_history: List[dict], model: str = "solar-
                     except:
                         ai_response = response.text
                         print("Failed to parse self-hosted response, falling back to Solar")
+                        use_solar = True
                         use_solar = True
 
         except Exception as e:
