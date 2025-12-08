@@ -8,19 +8,23 @@
     #chat-modal {
         transition: opacity 0.3s ease, transform 0.3s ease;
     }
+
     #chat-modal.hidden {
         opacity: 0;
         transform: scale(0.95);
         pointer-events: none;
     }
+
     /* 스크롤바 커스텀 */
     #chat-messages::-webkit-scrollbar {
         width: 6px;
     }
+
     #chat-messages::-webkit-scrollbar-thumb {
         background-color: #a5b4fc;
         border-radius: 3px;
     }
+
     #chat-messages::-webkit-scrollbar-track {
         background-color: #e0e7ff;
     }
@@ -30,8 +34,8 @@
 {% block content %}
 <div class="min-h-[calc(100vh-150px)] flex items-center justify-center">
     <div class="text-center">
-        <button id="start-chat-btn" type="button" 
-                class="px-20 py-16 bg-indigo-600 text-white text-4xl font-bold rounded-3xl hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-offset-4 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 shadow-2xl">
+        <button id="start-chat-btn" type="button"
+            class="px-20 py-16 bg-indigo-600 text-white text-4xl font-bold rounded-3xl hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-offset-4 focus:ring-indigo-500 transition-all duration-300 transform hover:scale-105 shadow-2xl">
             <i class="fas fa-pencil-alt mr-4"></i>
             일기만들기
         </button>
@@ -47,17 +51,22 @@
                 <i class="fas fa-comments-dollar text-indigo-500 mr-2"></i>
                 AI와 대화하며 일기 쓰기
             </h3>
-            
+
             <!-- 모델 선택 -->
             <div class="flex items-center space-x-4 ml-4">
                 <label class="inline-flex items-center cursor-pointer">
                     <input type="radio" name="chat-model" value="solar-pro" class="form-radio text-indigo-600" checked>
                     <span class="ml-2 text-sm text-gray-700">Solar Pro</span>
                 </label>
-                <label class="inline-flex items-center cursor-pointer">
-                    <input type="radio" name="chat-model" value="emotlink-model" class="form-radio text-pink-600">
-                    <span class="ml-2 text-sm text-gray-700">EmotLink Model</span>
-                </label>
+                <div class="flex items-center">
+                    <input type="radio" id="model-emotlink" name="chat-model" value="emotlink-model"
+                        class="form-radio text-pink-600">
+                    <a href="https://relink79.com" target="_blank" onclick="event.stopPropagation();"
+                        class="ml-2 mr-1 text-gray-400 hover:text-pink-500 transition-colors" title="자세히 보기">
+                        <i class="fas fa-question-circle text-sm"></i>
+                    </a>
+                    <label for="model-emotlink" class="text-sm text-gray-700 cursor-pointer">Qwen3 Tunning</label>
+                </div>
             </div>
 
             <button id="close-chat-btn" class="text-gray-400 hover:text-gray-600">
@@ -72,13 +81,13 @@
         <div class="pt-4 border-t border-gray-200">
             <form id="chat-form" class="flex items-center space-x-3">
                 <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." autocomplete="off"
-                       class="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    class="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                 <button type="button" id="voice-recognition-btn"
-                        class="bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
+                    class="bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
                     <i class="fas fa-microphone"></i>
                 </button>
                 <button type="submit" id="chat-submit-btn"
-                        class="bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
+                    class="bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-110">
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </form>
@@ -89,243 +98,243 @@
 
 {% block extra_js %}
 <script>
-let roomId = "";
-let finished = false;
+    let roomId = "";
+    let finished = false;
 
-document.addEventListener('DOMContentLoaded', () => {
-    const startChatBtn = document.getElementById('start-chat-btn');
-    const closeChatBtn = document.getElementById('close-chat-btn');
-    const chatModal = document.getElementById('chat-modal');
-    const chatMessages = document.getElementById('chat-messages');
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    const chatSubmitBtn = document.getElementById('chat-submit-btn');
-    const voiceRecognitionBtn = document.getElementById('voice-recognition-btn');
+    document.addEventListener('DOMContentLoaded', () => {
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const closeChatBtn = document.getElementById('close-chat-btn');
+        const chatModal = document.getElementById('chat-modal');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatSubmitBtn = document.getElementById('chat-submit-btn');
+        const voiceRecognitionBtn = document.getElementById('voice-recognition-btn');
 
-    // 모달 열기
-    startChatBtn.addEventListener('click', async () => {
-        chatModal.classList.remove('hidden');
-        resetChat();
-        
-        try {
-            const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
-            const response = await fetch('/chat/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: selectedModel })
-            });
+        // 모달 열기
+        startChatBtn.addEventListener('click', async () => {
+            chatModal.classList.remove('hidden');
+            resetChat();
 
-            if (!response.ok) throw new Error('채팅 시작에 실패했습니다.');
+            try {
+                const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
+                const response = await fetch('/chat/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: selectedModel })
+                });
 
-            const data = await response.json();
-            roomId = data.room_id;
-            addMessage(data.response, 'ai');
-        } catch (error) {
-            addMessage('오류: ' + error.message, 'ai');
-        }
-    });
+                if (!response.ok) throw new Error('채팅 시작에 실패했습니다.');
 
-    // 모달 닫기
-    closeChatBtn.addEventListener('click', () => {
-        if (finished) {
-            location.href = "/view";
-        } else {
-            chatModal.classList.add('hidden');
+                const data = await response.json();
+                roomId = data.room_id;
+                addMessage(data.response, 'ai');
+            } catch (error) {
+                addMessage('오류: ' + error.message, 'ai');
+            }
+        });
 
-            fetch('/chat/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: "채팅방 나가기", room_id: roomId })
-            });
-        }
-    });
-
-    // 메시지 전송
-    chatForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        addMessage(message, 'user');
-        chatInput.value = '';
-        toggleInput(true);
-
-        try {
-            const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
-            const response = await fetch('/chat/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message, room_id: roomId, model: selectedModel })
-            });
-
-            if (!response.ok) throw new Error('메시지 전송에 실패했습니다.');
-            
-            const data = await response.json();
-            addMessage(data.response, 'ai');
-
-            if (data.finished) {
-                toggleInput(true);
-                finished = true;
+        // 모달 닫기
+        closeChatBtn.addEventListener('click', () => {
+            if (finished) {
+                location.href = "/view";
             } else {
+                chatModal.classList.add('hidden');
+
+                fetch('/chat/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: "채팅방 나가기", room_id: roomId })
+                });
+            }
+        });
+
+        // 메시지 전송
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, 'user');
+            chatInput.value = '';
+            toggleInput(true);
+
+            try {
+                const selectedModel = document.querySelector('input[name="chat-model"]:checked').value;
+                const response = await fetch('/chat/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message, room_id: roomId, model: selectedModel })
+                });
+
+                if (!response.ok) throw new Error('메시지 전송에 실패했습니다.');
+
+                const data = await response.json();
+                addMessage(data.response, 'ai');
+
+                if (data.finished) {
+                    toggleInput(true);
+                    finished = true;
+                } else {
+                    toggleInput(false);
+                }
+            } catch (error) {
+                addMessage('오류: ' + error.message, 'ai');
                 toggleInput(false);
             }
-        } catch (error) {
-            addMessage('오류: ' + error.message, 'ai');
+        });
+
+        function addMessage(text, sender) {
+            const messageContainer = document.createElement('div');
+            messageContainer.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
+            const bubble = document.createElement('div');
+            bubble.textContent = text;
+            let bubbleClasses = 'max-w-[75%] px-4 py-2 rounded-2xl break-words shadow-md';
+            if (sender === 'user') {
+                bubbleClasses += ' bg-indigo-600 text-white rounded-br-lg';
+            } else {
+                bubbleClasses += ' bg-gray-200 text-gray-800 rounded-bl-lg';
+            }
+            bubble.className = bubbleClasses;
+            messageContainer.appendChild(bubble);
+            chatMessages.appendChild(messageContainer);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function resetChat() {
+            chatMessages.innerHTML = '';
             toggleInput(false);
         }
-    });
 
-    function addMessage(text, sender) {
-        const messageContainer = document.createElement('div');
-        messageContainer.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
-        const bubble = document.createElement('div');
-        bubble.textContent = text;
-        let bubbleClasses = 'max-w-[75%] px-4 py-2 rounded-2xl break-words shadow-md';
-        if (sender === 'user') {
-            bubbleClasses += ' bg-indigo-600 text-white rounded-br-lg';
-        } else {
-            bubbleClasses += ' bg-gray-200 text-gray-800 rounded-bl-lg';
-        }
-        bubble.className = bubbleClasses;
-        messageContainer.appendChild(bubble);
-        chatMessages.appendChild(messageContainer);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function resetChat() {
-        chatMessages.innerHTML = '';
-        toggleInput(false);
-    }
-    
-    function toggleInput(disabled) {
-        chatInput.disabled = disabled;
-        chatSubmitBtn.disabled = disabled;
-        voiceRecognitionBtn.disabled = disabled;
-        chatSubmitBtn.classList.toggle('opacity-50', disabled);
-        chatSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
-        voiceRecognitionBtn.classList.toggle('opacity-50', disabled);
-        voiceRecognitionBtn.classList.toggle('cursor-not-allowed', disabled);
-    }
-
-    // 음성 녹음 및 서버 전송
-    let mediaRecorder;
-    let audioChunks = [];
-    let isRecording = false;
-    const originalPlaceholder = chatInput.placeholder;
-
-    // 마이크 권한 확인 및 요청 함수
-    async function checkAndRequestMicrophonePermission() {
-        // Capacitor를 사용할 수 없거나, 네이티브 앱 환경이 아닌 경우 (일반 웹 브라우저)
-        if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform()) {
-            console.log('Capacitor not available or not native. Assuming web environment.');
-            return true;
+        function toggleInput(disabled) {
+            chatInput.disabled = disabled;
+            chatSubmitBtn.disabled = disabled;
+            voiceRecognitionBtn.disabled = disabled;
+            chatSubmitBtn.classList.toggle('opacity-50', disabled);
+            chatSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
+            voiceRecognitionBtn.classList.toggle('opacity-50', disabled);
+            voiceRecognitionBtn.classList.toggle('cursor-not-allowed', disabled);
         }
 
-        try {
-            // 함수 내부에서 플러그인을 가져와서 사용
-            const { Permissions } = Capacitor.Plugins;
-            let permissionStatus = await Permissions.query({ name: 'microphone' });
+        // 음성 녹음 및 서버 전송
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        const originalPlaceholder = chatInput.placeholder;
 
-            if (permissionStatus.state === 'prompt') {
-                permissionStatus = await Permissions.request({ name: 'microphone' });
+        // 마이크 권한 확인 및 요청 함수
+        async function checkAndRequestMicrophonePermission() {
+            // Capacitor를 사용할 수 없거나, 네이티브 앱 환경이 아닌 경우 (일반 웹 브라우저)
+            if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform()) {
+                console.log('Capacitor not available or not native. Assuming web environment.');
+                return true;
             }
 
-            if (permissionStatus.state === 'denied') {
-                alert('마이크 사용 권한이 거부되었습니다. 앱 설정에서 권한을 허용해주세요.');
+            try {
+                // 함수 내부에서 플러그인을 가져와서 사용
+                const { Permissions } = Capacitor.Plugins;
+                let permissionStatus = await Permissions.query({ name: 'microphone' });
+
+                if (permissionStatus.state === 'prompt') {
+                    permissionStatus = await Permissions.request({ name: 'microphone' });
+                }
+
+                if (permissionStatus.state === 'denied') {
+                    alert('마이크 사용 권한이 거부되었습니다. 앱 설정에서 권한을 허용해주세요.');
+                    return false;
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Error requesting microphone permission', e);
+                alert('마이크 권한 확인 중 오류가 발생했습니다.');
                 return false;
             }
-            
-            return true;
-        } catch (e) {
-            console.error('Error requesting microphone permission', e);
-            alert('마이크 권한 확인 중 오류가 발생했습니다.');
-            return false;
-        }
-    }
-
-    // 마이크 버튼은 항상 표시하고, 클릭 시 기능 체크
-    voiceRecognitionBtn.addEventListener('click', async () => {
-        // 먼저 권한 체크
-        const hasPermission = await checkAndRequestMicrophonePermission();
-        if (!hasPermission) {
-            return;
         }
 
-        // getUserMedia 지원 체크
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('이 환경에서는 음성 녹음을 지원하지 않습니다.');
-            return;
-        }
+        // 마이크 버튼은 항상 표시하고, 클릭 시 기능 체크
+        voiceRecognitionBtn.addEventListener('click', async () => {
+            // 먼저 권한 체크
+            const hasPermission = await checkAndRequestMicrophonePermission();
+            if (!hasPermission) {
+                return;
+            }
 
-        if (isRecording) {
-            mediaRecorder.stop();
-        } else {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    isRecording = true;
-                    audioChunks = [];
-                    
-                    // change voice button & placeholder
-                    voiceRecognitionBtn.innerHTML = '<i class="fas fa-stop-circle"></i>';
-                    voiceRecognitionBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-                    voiceRecognitionBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    chatInput.placeholder = '녹음 중...';
+            // getUserMedia 지원 체크
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('이 환경에서는 음성 녹음을 지원하지 않습니다.');
+                return;
+            }
 
-                    mediaRecorder.addEventListener("dataavailable", event => {
-                        audioChunks.push(event.data);
-                    });
+            if (isRecording) {
+                mediaRecorder.stop();
+            } else {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        mediaRecorder.start();
+                        isRecording = true;
+                        audioChunks = [];
 
-                    mediaRecorder.addEventListener("stop", () => {
-                        isRecording = false;
-                        voiceRecognitionBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-                        voiceRecognitionBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                        voiceRecognitionBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                        chatInput.placeholder = '음성 처리 중입니다...';
-                        
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const formData = new FormData();
-                        formData.append('audio_file', audioBlob, 'recording.webm');
+                        // change voice button & placeholder
+                        voiceRecognitionBtn.innerHTML = '<i class="fas fa-stop-circle"></i>';
+                        voiceRecognitionBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                        voiceRecognitionBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                        chatInput.placeholder = '녹음 중...';
 
-                        fetch('/chat/transcribe', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.transcript) {
-                                const transcript = (data.transcript || '').trim();
-                                // 입력창에만 채우고, 사용자가 수정할 수 있게 함 (자동 전송 금지)
-                                // WebView에서 반영이 늦는 경우를 대비해 frame 후 적용 및 포커스 설정
-                                requestAnimationFrame(() => {
-                                    chatInput.disabled = false;
-                                    chatSubmitBtn.disabled = false;
-                                    voiceRecognitionBtn.disabled = false;
-                                    chatInput.value = transcript;
-                                    chatInput.focus();
-                                    try { chatInput.setSelectionRange(transcript.length, transcript.length); } catch (e) {}
-                                });
-                            }
-                            chatInput.placeholder = originalPlaceholder;
-                        })
-                        .catch(error => {
-                            console.error('Error uploading audio:', error);
-                            alert('음성 파일 업로드 중 오류가 발생했습니다.');
-                            chatInput.placeholder = originalPlaceholder;
+                        mediaRecorder.addEventListener("dataavailable", event => {
+                            audioChunks.push(event.data);
                         });
+
+                        mediaRecorder.addEventListener("stop", () => {
+                            isRecording = false;
+                            voiceRecognitionBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                            voiceRecognitionBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                            voiceRecognitionBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                            chatInput.placeholder = '음성 처리 중입니다...';
+
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            const formData = new FormData();
+                            formData.append('audio_file', audioBlob, 'recording.webm');
+
+                            fetch('/chat/transcribe', {
+                                method: 'POST',
+                                body: formData
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.transcript) {
+                                        const transcript = (data.transcript || '').trim();
+                                        // 입력창에만 채우고, 사용자가 수정할 수 있게 함 (자동 전송 금지)
+                                        // WebView에서 반영이 늦는 경우를 대비해 frame 후 적용 및 포커스 설정
+                                        requestAnimationFrame(() => {
+                                            chatInput.disabled = false;
+                                            chatSubmitBtn.disabled = false;
+                                            voiceRecognitionBtn.disabled = false;
+                                            chatInput.value = transcript;
+                                            chatInput.focus();
+                                            try { chatInput.setSelectionRange(transcript.length, transcript.length); } catch (e) { }
+                                        });
+                                    }
+                                    chatInput.placeholder = originalPlaceholder;
+                                })
+                                .catch(error => {
+                                    console.error('Error uploading audio:', error);
+                                    alert('음성 파일 업로드 중 오류가 발생했습니다.');
+                                    chatInput.placeholder = originalPlaceholder;
+                                });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error accessing microphone:', error);
+                        if (error.name === 'NotAllowedError') {
+                            alert('마이크 접근 권한이 필요합니다. 브라우저 설정을 확인해주세요.');
+                        } else {
+                            alert('마이크를 사용할 수 없습니다.');
+                        }
                     });
-                })
-                .catch(error => {
-                    console.error('Error accessing microphone:', error);
-                    if (error.name === 'NotAllowedError') {
-                        alert('마이크 접근 권한이 필요합니다. 브라우저 설정을 확인해주세요.');
-                    } else {
-                        alert('마이크를 사용할 수 없습니다.');
-                    }
-                });
-        }
+            }
+        });
     });
-});
 </script>
-{% endblock %} 
+{% endblock %}
